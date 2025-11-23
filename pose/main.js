@@ -4,6 +4,7 @@
 import { runPoseDetectionOnFrames } from './pose_landmarker_frame.js';
 import { VideoFrameExtractor } from './video_frame_extractor.js';
 import { setupCropBox } from './setup_crop_box.js';
+import { loadOpenCV } from '../load_opencv.js';
 
 //-------------------------------------------------------------
 // DOM ELEMENTS
@@ -152,6 +153,8 @@ frameDetectBtn.addEventListener('click', async function handleFrameDetect() {
     downloadBtn.disabled = poseResults.length === 0;
     frameDetectBtn.removeEventListener('click', confirmCropHandler);
     frameDetectBtn.addEventListener('click', handleFrameDetect);
+    await loadOpenCV();
+    console.log('OpenCV loaded');
 
   }, { once: true });
 });

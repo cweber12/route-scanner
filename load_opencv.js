@@ -22,5 +22,6 @@ export function loadOpenCV() {
         };
         script.onerror = reject;
         document.body.appendChild(script);
+        console.log('Loading OpenCV.js...');
     });
 }

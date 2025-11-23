@@ -8,7 +8,7 @@ import {
     DrawingUtils
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/vision_bundle.js";
 import { VideoFrameExtractor } from './video_frame_extractor.js';
-import {setShared} from '../shared_state.js';
+import {getShared, setShared} from '../shared_state.js';    
 
 // Run pose detection on extracted video frames at specified interval
 export async function runPoseDetectionOnFrames(
@@ -63,6 +63,9 @@ export async function runPoseDetectionOnFrames(
             fullFrameCtx.drawImage(img, 0, 0, img.width, img.height);
             // Store as Data URL (or the canvas itself if you prefer)
             setShared('firstFrameImage', fullFrameCanvas.toDataURL());
+            console.log('setShared firstFrameImage: ', fullFrameCanvas.toDataURL());
+            const tempShared = getShared('firstFrameImage');
+            console.log('getShared firstFrameImage: ', tempShared);
         }
 
         // Snapshot crop for THIS frame

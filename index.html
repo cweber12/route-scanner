@@ -97,6 +97,41 @@
                     <div id="statsA" class="mono muted"></div>
                 </div>
             </div>
+
+            <div class="upload-wrapper">
+                <h2>Match Saved ORB Features to Image B</h2>
+                <div class="controls card">
+                    <input id="fileJSON" type="file" accept=".json,application/json" />
+                    <input id="fileB" type="file" accept="image/*" />
+                </div>
+            </div>  
+            
+            <div id="matchSection">
+                <div class="row" style="width:100%; align-items:flex-start; gap:24px; justify-content: space-between;">
+                <div class="column muted params">
+                    <div class="row param">
+                    ratio <input id="ratio" type="number" step="0.01" value="0.75">
+                    </div>
+                    <div class="row param">
+                    RANSACthresh <input id="ransac" type="number" step="0.1" value="3.0">       
+                    </div>
+                    <button id="btnMatch" style="margin-top: 24px;" disabled>Match</button>
+                </div>
+                
+                <div id="imgWrapperB" style="position:relative; display:inline-block; max-width: 65%;">
+                    <img id="imgB" alt="Image B preview" hidden/>
+                    <div id="cropBoxB" class="crop-box" style="position:absolute;" hidden>
+                    <div class="resize-handle" data-corner="nw"></div>
+                    <div class="resize-handle" data-corner="ne"></div>
+                    <div class="resize-handle" data-corner="sw"></div>
+                    <div class="resize-handle" data-corner="se"></div>
+                    </div>  
+                </div>
+                <canvas id="canvasMatches" style="width:100%;" hidden></canvas>
+                <div id="statsB" class="mono muted"></div>
+                    
+                </div>  
+            </div>  
         </div>
 
         <!-- Main JavaScript Modules -->

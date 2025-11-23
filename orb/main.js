@@ -4,7 +4,9 @@
 import { ORBModule } from './orb_module.js?v=20251104';
 import { setupCropBox } from './setup_crop_box.js?v=20251104';
 import { loadImg, matFromImageEl, cropImage } from './image_utils.js?v=20251104';
-import {getShared} from '../shared_state.js?v=20251104';
+import {getShared} from '../shared_state.js';
+
+console.log('orb/main.js loaded');
 
 // ---------------------------------------------------------------------------
 // ELEMENTS 
@@ -75,31 +77,6 @@ const haveFeatures = () => Boolean(loadedJSON || detectResult);
 // ---------------------------------------------------------------------------
 // HELPERS 
 // ---------------------------------------------------------------------------
-
-/*___________________________________________________________________________
-
-Load OpenCV.js dynamically if not already loaded
-____________________________________________________________________________*/
-
-function loadOpenCV() {
-    return new Promise((resolve, reject) => {
-        if (window.cv && (window.cv.Mat || window.cv.getBuildInformation)) {
-            resolve();
-            return;
-        }
-        const script = document.createElement('script');
-        script.src = './opencv/opencv.js';
-        script.onload = () => {
-            cv['onRuntimeInitialized'] = () => {
-                window.cvIsReady = true;
-                document.dispatchEvent(new Event('cv-ready'));
-                resolve();
-            };
-        };
-        script.onerror = reject;
-        document.body.appendChild(script);
-    });
-}
 
 /* ___________________________________________________________________________
 
@@ -269,7 +246,7 @@ Image A load event handler
   - Loads image, initializes crop box, and updates state
 ____________________________________________________________________________*/  
 
-fileA.addEventListener('change', async () => {
+/*fileA.addEventListener('change', async () => {
     const f = fileA.files?.[0]; // get selected file
     if (!f) return;             // if no file, exit
     try {                       // try to load image
@@ -304,7 +281,7 @@ fileA.addEventListener('change', async () => {
         imgA.hidden = true;
     }
     refreshButtons(); // refresh button states
-});
+});*/
 
 /*___________________________________________________________________________
 
@@ -589,8 +566,7 @@ ____________________________________________________________________________*/
 
 showOrbBtn.addEventListener('click', async () => {
     console.log('Switching to ORB mode');
-    await loadOpenCV();
-    const dataUrl = getShared('firstFrameImage');
+    const dataUrl = await getShared('firstFrameImage');
     console.log('firstFrameImage dataUrl:', dataUrl);
     if (!dataUrl) {
         alert('No shared first frame image found.');
