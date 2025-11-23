@@ -102,7 +102,7 @@ video {
     max-width: 100%;
 }
 
-canvas {
+.pose-canvas {
     position: absolute;
     left: 0;
     top: 0;
@@ -163,6 +163,7 @@ canvas {
     justify-content: flex-start; 
     align-items: center; 
     width: 100%; 
+    height: auto; 
     gap: 16px;
     
 }
@@ -189,5 +190,25 @@ canvas {
     max-width:30%;
     margin:16px 0px; 
     justify-content:flex-start;
+}
+
+.orb-canvas {
+    max-width: 100%; 
+    height: auto;
+    max-height: 100%; 
+    border-radius: 4px; 
+    border: 1px solid #2d2d2d; 
+    box-shadow: 2px 2px 6px rgba(0,0,0,0.5);
+}
+
+.mono { 
+    font-family: ui-monospace, 
+    SFMono-Regular, Menlo, monospace; 
+    font-size: 12px; 
+    white-space: pre-wrap; 
+}
+
+#canvasMatches {
+    margin-top: 24px; 
 }
 

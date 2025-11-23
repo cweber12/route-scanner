@@ -1,5 +1,8 @@
 // orb_module.js
 // ORB feature detection and matching
+
+import { setShared } from '../shared_state.js';
+
 export class ORBModule {
   constructor(cv) { this.cv = cv; this._lastCanvasMat = null; }
 
@@ -96,18 +99,22 @@ export class ORBModule {
       y: kp.y / height  // normalize y coordinate
     }));
 
-    // 3. Return JSON object
-    return {
-      version: 1,                                 // version number
-      type: "ORB",                                // feature type                     
-      imageSize: { width, height },               // original image size
-      keypoints: normKeypoints,                   // normalized keypoints
-      descriptors: descriptors ? {                // descriptors (base64 encoded)
-        rows: descriptors.rows,                   //   - number of rows
-        cols: descriptors.cols,                   //   - number of columns
-        data_b64: this._u8ToB64(descriptors.data) //   - base64 data
-      } : null                                    // null if no descriptors
+    // 3. Create JSON object
+    const json = {
+      version: 1,
+      type: "ORB",
+      imageSize: { width, height },
+      keypoints: normKeypoints,
+      descriptors: descriptors ? {
+        rows: descriptors.rows,
+        cols: descriptors.cols,
+        data_b64: this._u8ToB64(descriptors.data)
+      } : null
     };
+
+    setShared('orbA', json); // Store in shared state
+
+    return json;
   }
 
   // Import JSON (reverse of export)

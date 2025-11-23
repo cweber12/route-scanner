@@ -41,7 +41,7 @@
                     <!-- Video Element-->
                     <video id="video" controls style="max-width:100%;"></video>
                     <!-- Canvas to Overlay Pose Landmarks-->
-                    <canvas id="overlay" style="position:absolute; left:0; top:0; pointer-events:none;"></canvas>
+                    <canvas id="overlay" class="pose-canvas" style="position:absolute; left:0; top:0; pointer-events:none;"></canvas>
                     <!-- Crop Box for Selecting Region of Interest -->
                     <div id="cropBoxPose" class="crop-box" style="position:absolute;" hidden>
                         <!-- Resize Handles (Draggable Corners) -->
@@ -62,7 +62,7 @@
             <!-- ORB parameters and action buttons -->
             <div id="detectOrb" style="width: 100%;">
                 <h2>Extract and Export ORB Features</h2>
-                <div class="row" style="width:100%; align-items:flex-start; gap:24px; justify-content: space-between;">
+                <div class="row" style="width:100%; align-items:flex-start; gap:24px; justify-content: space-between; margin-bottom: 48px;">
                 <div class="column muted params">
                     <div class="row param">
                     nfeatures <input id="nfeatures" type="number" value="1200" min="100" max="5000">
@@ -86,14 +86,14 @@
                     <button id="btnDownload" style="width: 100%;" disabled>Download features.json</button>
                 </div>
                 <div style="position:relative; display:inline-block; max-width:65%;">
-                    <img id="imgA" alt="Image A preview" hidden/>
-                    <div id="cropBoxOrb" class="crop-box" style="position:absolute;" hidden>
+                    <img id="imgA" class="orb-canvas" alt="Image A preview" hidden/>
+                    <div id="cropBoxOrb" class="crop-box orb-canvas" style="position:absolute;" hidden>
                     <div class="resize-handle" data-corner="nw"></div>
                     <div class="resize-handle" data-corner="ne"></div>
                     <div class="resize-handle" data-corner="sw"></div>
                     <div class="resize-handle" data-corner="se"></div>
                     </div>
-                    <canvas id="canvasA" style="max-width:100%;" hidden></canvas>
+                    <canvas id="canvasA" class="orb-canvas" style="max-width:100%;" hidden></canvas>
                     <div id="statsA" class="mono muted"></div>
                 </div>
             </div>
@@ -108,29 +108,28 @@
             
             <div id="matchSection">
                 <div class="row" style="width:100%; align-items:flex-start; gap:24px; justify-content: space-between;">
-                <div class="column muted params">
-                    <div class="row param">
-                    ratio <input id="ratio" type="number" step="0.01" value="0.75">
+                    <div class="column muted params">
+                        <div class="row param">
+                        ratio <input id="ratio" type="number" step="0.01" value="0.75">
+                        </div>
+                        <div class="row param">
+                        RANSACthresh <input id="ransac" type="number" step="0.1" value="3.0">       
+                        </div>
+                        <button id="btnMatch" style="margin-top: 24px; width: 100%;" disabled>Match</button>
                     </div>
-                    <div class="row param">
-                    RANSACthresh <input id="ransac" type="number" step="0.1" value="3.0">       
-                    </div>
-                    <button id="btnMatch" style="margin-top: 24px;" disabled>Match</button>
-                </div>
-                
-                <div id="imgWrapperB" style="position:relative; display:inline-block; max-width: 65%;">
-                    <img id="imgB" alt="Image B preview" hidden/>
-                    <div id="cropBoxB" class="crop-box" style="position:absolute;" hidden>
-                    <div class="resize-handle" data-corner="nw"></div>
-                    <div class="resize-handle" data-corner="ne"></div>
-                    <div class="resize-handle" data-corner="sw"></div>
-                    <div class="resize-handle" data-corner="se"></div>
-                    </div>  
-                </div>
-                <canvas id="canvasMatches" style="width:100%;" hidden></canvas>
-                <div id="statsB" class="mono muted"></div>
                     
-                </div>  
+                    <div id="imgWrapperB" style="position:relative; display:inline-block; max-width: 65%;">
+                        <img id="imgB" class="orb-canvas" alt="Image B preview" hidden/>
+                        <div id="cropBoxB" class="crop-box orb-canvas" style="position:absolute;" hidden>
+                        <div class="resize-handle" data-corner="nw"></div>
+                        <div class="resize-handle" data-corner="ne"></div>
+                        <div class="resize-handle" data-corner="sw"></div>
+                        <div class="resize-handle" data-corner="se"></div>
+                        </div>  
+                    </div>   
+                </div>
+                <canvas id="canvasMatches" class="orb-canvas" style="width:100%;" hidden></canvas>
+                <div id="statsB" class="mono muted"></div>  
             </div>  
         </div>
 

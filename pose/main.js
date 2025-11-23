@@ -5,6 +5,7 @@ import { runPoseDetectionOnFrames } from './pose_landmarker_frame.js';
 import { VideoFrameExtractor } from './video_frame_extractor.js';
 import { setupCropBox } from './setup_crop_box.js';
 import { loadOpenCV } from '../load_opencv.js';
+import { setShared } from '../shared_state.js';
 
 //-------------------------------------------------------------
 // DOM ELEMENTS
@@ -159,30 +160,34 @@ frameDetectBtn.addEventListener('click', async function handleFrameDetect() {
   }, { once: true });
 });
 
-async function runFrameDetection() {
-    const n = parseInt(intervalInput.value, 10) || 1;
-    poseResults.length = 0; 
-    downloadBtn.disabled = true; 
-    await runPoseDetectionOnFrames(
-        videoEl, 
-        canvasEl, 
-        statusEl, 
-        poseResults, 
-        n, 
-        frameNav, 
-        frameCounter
-    );
-    downloadBtn.disabled = poseResults.length === 0;
+// Normalization function
+function normalizeLandmarks(landmarks, refWidth, refHeight) {
+  return landmarks.map(lm => ({
+    ...lm,
+    x: lm.x / refWidth,
+    y: lm.y / refHeight
+  }));
 }
-
 
 downloadBtn.addEventListener('click', () => {
   if (poseResults.length === 0) {
     alert("No pose data collected yet.");
     return;
   }
+
+  const normalizedResults = poseResults.map(result => ({
+    ...result,
+    landmarks: normalizeLandmarks(
+      result.landmarks, 
+      videoEl.videoWidth, 
+      videoEl.videoHeight
+    )
+  }));
+
+  setShared('poseA', normalizedResults);
+  
   const blob = new Blob([
-    JSON.stringify(poseResults, null, 2)
+    JSON.stringify(normalizedResults, null, 2)
   ], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
