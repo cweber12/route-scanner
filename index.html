@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Route Scanner</title>
+        <link rel="stylesheet" href="pose/styles.css" />
+    </head>
+    
+        <body>
+            <div class="main-wrapper">
+                <div class="column" style="width: 100%; align-items: flex-start;"> 
+                    <h1>Route Scanner</h1>    
+                    <div id="status" class="status">Load a video to get started.</div>
+                </div>
+
+            <div class="controls card">
+                <!-- Video File Input -->
+                <label>
+                    <span>Select video: </span>
+                    <input id="videoFile" type="file" accept="video/*" />
+                </label>
+
+                <!-- Detect Pose Landmarks in Extracted Frames -->            
+                <button id="frameDetectBtn" disabled>Detect Pose Landmarks</button>
+                <!-- Stop Detection -->
+                <button id="stopBtn" disabled>Stop</button>
+                <!-- Download JSON Data -->
+                <button id="downloadBtn" disabled>Download JSON</button>
+            </div>
+
+            <div class="row" style="align-items: flex-start;">
+                <div class="column" style="width: 25%;">
+                    <!-- Set Interval for Frame Extraction -->
+                    <label>
+                        Interval (seconds): <input id="intervalInput" type="number" min="1" value="1" />
+                    </label>
+                </div>
+            
+                <!-- Video and Overlay Canvas with Crop Box -->
+                <div id="videoCropContainer" style="position:relative; display:inline-block; max-width:75%;">
+                    <!-- Video Element-->
+                    <video id="video" controls style="max-width:100%;"></video>
+                    <!-- Canvas to Overlay Pose Landmarks-->
+                    <canvas id="overlay" style="position:absolute; left:0; top:0; pointer-events:none;"></canvas>
+                    <!-- Crop Box for Selecting Region of Interest -->
+                    <div id="cropBox" class="crop-box" style="position:absolute;" hidden>
+                        <!-- Resize Handles (Draggable Corners) -->
+                        <div class="resize-handle" data-corner="nw"></div>
+                        <div class="resize-handle" data-corner="ne"></div>
+                        <div class="resize-handle" data-corner="sw"></div>
+                        <div class="resize-handle" data-corner="se"></div>
+                    </div>
+                    <!-- Frame Navigation for Extracted Frames -->
+                    <div id="frameNav" style="display:none; margin:24px 0px; gap: 10px; justify-self: center;">
+                        <button id="prevFrameBtn">Previous</button>
+                        <span id="frameCounter"></span>
+                        <button id="nextFrameBtn">Next</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main JavaScript Module -->
+        <script type="module" src="pose/main.js"></script>
+    </body>
+</html>
