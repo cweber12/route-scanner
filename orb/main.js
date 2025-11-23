@@ -4,6 +4,7 @@
 import { ORBModule } from './orb_module.js?v=20251104';
 import { setupCropBox } from './setup_crop_box.js?v=20251104';
 import { loadImg, matFromImageEl, cropImage } from './image_utils.js?v=20251104';
+import {getShared} from '../shared_state.js?v=20251104';
 
 // ---------------------------------------------------------------------------
 // ELEMENTS 
@@ -28,6 +29,7 @@ const canvasMatches = el('canvasMatches');
 const btnDetect = el('btnDetect');      // Detect features button
 const btnDownload = el('btnDownload');  // Download features.json button
 const btnMatch = el('btnMatch');        // Match features button
+const showOrbBtn = el('showOrb');       // Show ORB button to switch to ORB mode
 
 // ORB detection stats elements
 const statsA = el('statsA');  
@@ -48,7 +50,7 @@ const detectOrb = el('detectOrb');
 const matchSection = el('matchSection');          
 
 // Crop box for Image A
-const cropBox = document.getElementById('cropBox');
+const cropBox = document.getElementById('cropBoxOrb');
 // Crop box for Image B
 const cropBoxB = document.getElementById('cropBoxB'); 
 
@@ -73,6 +75,31 @@ const haveFeatures = () => Boolean(loadedJSON || detectResult);
 // ---------------------------------------------------------------------------
 // HELPERS 
 // ---------------------------------------------------------------------------
+
+/*___________________________________________________________________________
+
+Load OpenCV.js dynamically if not already loaded
+____________________________________________________________________________*/
+
+function loadOpenCV() {
+    return new Promise((resolve, reject) => {
+        if (window.cv && (window.cv.Mat || window.cv.getBuildInformation)) {
+            resolve();
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = './opencv/opencv.js';
+        script.onload = () => {
+            cv['onRuntimeInitialized'] = () => {
+                window.cvIsReady = true;
+                document.dispatchEvent(new Event('cv-ready'));
+                resolve();
+            };
+        };
+        script.onerror = reject;
+        document.body.appendChild(script);
+    });
+}
 
 /* ___________________________________________________________________________
 
@@ -551,4 +578,52 @@ btnMatch.addEventListener('click', () => {
         target.delete();
         refreshButtons();
     }
+});
+
+/*___________________________________________________________________________
+
+Show ORB detection section and load first frame from shared state
+  - Hides pose detection section
+  - Loads first frame image into Image A for ORB detection
+____________________________________________________________________________*/
+
+showOrbBtn.addEventListener('click', async () => {
+    console.log('Switching to ORB mode');
+    await loadOpenCV();
+    const dataUrl = getShared('firstFrameImage');
+    console.log('firstFrameImage dataUrl:', dataUrl);
+    if (!dataUrl) {
+        alert('No shared first frame image found.');
+        return;
+    }
+    // Convert Data URL to Blob
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    // Create a File object (optional, for consistency)
+    const file = new File([blob], 'first_frame.png', { type: blob.type });
+
+    // Use your existing loadImg logic directly
+    await loadImg(file, imgA, cropBox);
+
+    imgA.hidden = false;
+    cropBox.hidden = false;
+    detectOrb.hidden = false;
+
+    // Set up crop box and parent size as in your fileA handler
+    const imgRect = imgA.getBoundingClientRect();
+    const parent = imgA.parentElement;
+    parent.style.width = imgRect.width + 'px';
+    parent.style.height = imgRect.height + 'px';
+
+    cropBox.style.display = 'block';
+    cropBox.style.left = '0px';
+    cropBox.style.top = '0px';
+    cropBox.style.width = imgRect.width + 'px';
+    cropBox.style.height = imgRect.height + 'px';
+
+    imgAReady = true;
+    detectResult = null;
+    statsA.textContent = '';
+    canvasA.hidden = true;
+    refreshButtons();
 });

@@ -18,6 +18,8 @@ const canvasEl = document.getElementById('overlay');
 const frameDetectBtn = document.getElementById('frameDetectBtn');
 // Download button for results
 const downloadBtn = document.getElementById('downloadBtn');
+// Show ORB button to switch to ORB mode
+const showOrbBtn = document.getElementById('showOrb');
 // Status display element
 const statusEl = document.getElementById('status');
 // Interval input for frame extraction
@@ -109,8 +111,7 @@ frameDetectBtn.addEventListener('click', async function handleFrameDetect() {
 
   // Replace this handler with a one-time confirm handler
   frameDetectBtn.removeEventListener('click', handleFrameDetect);
-  frameDetectBtn.addEventListener('click', async function confirmCropHandler() {
-    
+  frameDetectBtn.addEventListener('click', async function confirmCropHandler() {   
     // Hide crop box
     cropBoxEl.hidden = true;
     
@@ -147,7 +148,7 @@ frameDetectBtn.addEventListener('click', async function handleFrameDetect() {
       frameCounter,
       cropRect
     );
-
+    showOrbBtn.disabled = poseResults.length === 0;
     downloadBtn.disabled = poseResults.length === 0;
     frameDetectBtn.removeEventListener('click', confirmCropHandler);
     frameDetectBtn.addEventListener('click', handleFrameDetect);

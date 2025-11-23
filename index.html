@@ -4,7 +4,6 @@
         <meta charset="UTF-8" />
         <title>Route Scanner</title>
         <link rel="stylesheet" href="pose/styles.css" />
-        <link rel="stylesheet" href="orb/styles.css" />
     </head>
     
     <body>
@@ -26,6 +25,7 @@
                 <button id="stopBtn" disabled>Stop</button>
                 <!-- Download JSON Data -->
                 <button id="downloadBtn" disabled>Download JSON</button>
+                <button id="showOrb" disabled>Detect ORB</button>
             </div>
 
             <div id="poseSection" class="row" style="align-items: flex-start;">
@@ -60,7 +60,7 @@
             </div>
 
             <!-- ORB parameters and action buttons -->
-            <div id="detectOrb">
+            <div id="detectOrb" style="width: 100%;">
                 <h2>Extract and Export ORB Features</h2>
                 <div class="row" style="width:100%; align-items:flex-start; gap:24px; justify-content: space-between;">
                 <div class="column muted params">
@@ -82,8 +82,8 @@
                     <div class="row param">
                     patchSize <input id="patchSize" type="number" value="31" min="1" max="100">
                     </div>
-                    <button id="btnDetect" style="margin-top: 24px;" disabled>Detect ORB</button>
-                    <button id="btnDownload" disabled>Download features.json</button>
+                    <button id="btnDetect" style="margin: 24px 0; width: 100%;" disabled>Detect ORB</button>
+                    <button id="btnDownload" style="width: 100%;" disabled>Download features.json</button>
                 </div>
                 <div style="position:relative; display:inline-block; max-width:65%;">
                     <img id="imgA" alt="Image A preview" hidden/>
@@ -98,7 +98,8 @@
                 </div>
             </div>
         </div>
-        <!-- Main JavaScript Module -->
+
+        <!-- Main JavaScript Modules -->
         <script type="module" src="pose/main.js"></script>
         <script type="module" src="orb/main.js"></script>
     </body>

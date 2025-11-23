@@ -8,7 +8,7 @@ import {
     DrawingUtils
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/vision_bundle.js";
 import { VideoFrameExtractor } from './video_frame_extractor.js';
-import {setShared} from './shared_state.js';
+import {setShared} from '../shared_state.js';
 
 // Run pose detection on extracted video frames at specified interval
 export async function runPoseDetectionOnFrames(

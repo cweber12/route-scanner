@@ -174,3 +174,20 @@ canvas {
     align-items: center;
 }
 
+/* ORB Styles */
+
+.param {
+    justify-content: space-between; 
+    margin-bottom: 8px; 
+}
+
+.param input {
+    width: 50px; 
+}
+
+.params {
+    max-width:30%;
+    margin:16px 0px; 
+    justify-content:flex-start;
+}
+
