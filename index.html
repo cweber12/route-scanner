@@ -4,15 +4,15 @@
         <meta charset="UTF-8" />
         <title>Route Scanner</title>
         <link rel="stylesheet" href="pose/styles.css" />
+        <link rel="stylesheet" href="orb/styles.css" />
     </head>
     
-        <body>
-            <div class="main-wrapper">
-                <div class="column" style="width: 100%; align-items: flex-start;"> 
-                    <h1>Route Scanner</h1>    
-                    <div id="status" class="status">Load a video to get started.</div>
-                </div>
-
+    <body>
+        <div class="main-wrapper">
+            <div class="column" style="width: 100%; align-items: flex-start;"> 
+                <h1>Route Scanner</h1>    
+                <div id="status" class="status">Load a video to get started.</div>
+            </div>
             <div class="controls card">
                 <!-- Video File Input -->
                 <label>
@@ -28,7 +28,7 @@
                 <button id="downloadBtn" disabled>Download JSON</button>
             </div>
 
-            <div class="row" style="align-items: flex-start;">
+            <div id="poseSection" class="row" style="align-items: flex-start;">
                 <div class="column" style="width: 25%;">
                     <!-- Set Interval for Frame Extraction -->
                     <label>
@@ -43,7 +43,7 @@
                     <!-- Canvas to Overlay Pose Landmarks-->
                     <canvas id="overlay" style="position:absolute; left:0; top:0; pointer-events:none;"></canvas>
                     <!-- Crop Box for Selecting Region of Interest -->
-                    <div id="cropBox" class="crop-box" style="position:absolute;" hidden>
+                    <div id="cropBoxPose" class="crop-box" style="position:absolute;" hidden>
                         <!-- Resize Handles (Draggable Corners) -->
                         <div class="resize-handle" data-corner="nw"></div>
                         <div class="resize-handle" data-corner="ne"></div>
@@ -58,9 +58,48 @@
                     </div>
                 </div>
             </div>
-        </div>
 
+            <!-- ORB parameters and action buttons -->
+            <div id="detectOrb">
+                <h2>Extract and Export ORB Features</h2>
+                <div class="row" style="width:100%; align-items:flex-start; gap:24px; justify-content: space-between;">
+                <div class="column muted params">
+                    <div class="row param">
+                    nfeatures <input id="nfeatures" type="number" value="1200" min="100" max="5000">
+                    </div>
+                    <div class="row param">
+                    nlevels <input id="nlevels" type="number" value="8" min="1" max="20">
+                    </div>
+                    <div class="row param">
+                    scaleFactor <input id="scaleFactor" type="number" step="0.1" value="1.2">
+                    </div>
+                    <div class="row param">
+                    edgeThres <input id="edgeThreshold" type="number" value="31" min="1" max="100">
+                    </div>
+                    <div class="row param">
+                    fastThresh <input id="fastThreshold" type="number" value="20" min="1" max="100">
+                    </div>
+                    <div class="row param">
+                    patchSize <input id="patchSize" type="number" value="31" min="1" max="100">
+                    </div>
+                    <button id="btnDetect" style="margin-top: 24px;" disabled>Detect ORB</button>
+                    <button id="btnDownload" disabled>Download features.json</button>
+                </div>
+                <div style="position:relative; display:inline-block; max-width:65%;">
+                    <img id="imgA" alt="Image A preview" hidden/>
+                    <div id="cropBoxOrb" class="crop-box" style="position:absolute;" hidden>
+                    <div class="resize-handle" data-corner="nw"></div>
+                    <div class="resize-handle" data-corner="ne"></div>
+                    <div class="resize-handle" data-corner="sw"></div>
+                    <div class="resize-handle" data-corner="se"></div>
+                    </div>
+                    <canvas id="canvasA" style="max-width:100%;" hidden></canvas>
+                    <div id="statsA" class="mono muted"></div>
+                </div>
+            </div>
+        </div>
         <!-- Main JavaScript Module -->
         <script type="module" src="pose/main.js"></script>
+        <script type="module" src="orb/main.js"></script>
     </body>
 </html>

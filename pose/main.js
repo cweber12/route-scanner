@@ -5,6 +5,7 @@ import { runPoseDetectionOnFrames } from './pose_landmarker_frame.js';
 import { VideoFrameExtractor } from './video_frame_extractor.js';
 import { setupCropBox } from './setup_crop_box.js';
 
+//-------------------------------------------------------------
 // DOM ELEMENTS
 //-------------------------------------------------------------
 // File input for video
@@ -21,16 +22,16 @@ const downloadBtn = document.getElementById('downloadBtn');
 const statusEl = document.getElementById('status');
 // Interval input for frame extraction
 const intervalInput = document.getElementById('intervalInput');
-// Element contianing prev/next frame buttons and counter
+// Element containing prev/next frame buttons and counter
 const frameNav = document.getElementById('frameNav');
 // Displays current frame number in frameNav
 const frameCounter = document.getElementById('frameCounter');
 // Crop box element to select ROI to detect within
-const cropBoxEl = document.getElementById('cropBox');
-
+const cropBoxEl = document.getElementById('cropBoxPose');
 // Results
 const poseResults = [];
 
+//-------------------------------------------------------------
 // EVENT LISTENERS
 //-------------------------------------------------------------
 
@@ -39,22 +40,23 @@ videoEl.addEventListener('loadedmetadata', () => {
   frameDetectBtn.disabled = false;
 
   // Adjust canvas pixel buffer size
-  canvasEl.width = videoEl.videoWidth;
-  canvasEl.height = videoEl.videoHeight;
-  canvasEl.style.position = 'absolute';
-  canvasEl.style.left = '0px';
-  canvasEl.style.top = '0px';
-  canvasEl.style.pointerEvents = 'none'; // allow clicks to pass through to video
+  canvasEl.width = videoEl.videoWidth;    // match video width
+  canvasEl.height = videoEl.videoHeight;  // match video height
+  canvasEl.style.position = 'absolute';   // position over video
+  canvasEl.style.left = '0px';            // align left
+  canvasEl.style.top = '0px';             // align top
+  canvasEl.style.pointerEvents = 'none';  // allow clicks to pass through
 
   // Set canvas and crop box size to match video display size
-  const videoRect = videoEl.getBoundingClientRect();
-  canvasEl.style.width = videoRect.width + 'px';
-  canvasEl.style.height = videoRect.height + 'px';
-  cropBoxEl.style.width = videoRect.width + 'px';
-  cropBoxEl.style.height = videoRect.height + 'px';
-  cropBoxEl.style.left = '0px';
-  cropBoxEl.style.top = '0px';
+  const videoRect = videoEl.getBoundingClientRect(); // get displayed video size
+  canvasEl.style.width = videoRect.width + 'px';    // match displayed video width
+  canvasEl.style.height = videoRect.height + 'px';  // match displayed video height
+  cropBoxEl.style.width = videoRect.width + 'px';   // match displayed video width
+  cropBoxEl.style.height = videoRect.height + 'px'; // match displayed video height
+  cropBoxEl.style.left = '0px'; // align left
+  cropBoxEl.style.top = '0px';  // align top
 
+  // Update status
   statusEl.textContent = "Video loaded. Click \"Detect Pose Landmarks\" to start.";
 });
 

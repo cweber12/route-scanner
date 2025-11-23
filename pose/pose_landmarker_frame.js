@@ -8,34 +8,62 @@ import {
     DrawingUtils
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/vision_bundle.js";
 import { VideoFrameExtractor } from './video_frame_extractor.js';
+import {setShared} from './shared_state.js';
 
 // Run pose detection on extracted video frames at specified interval
 export async function runPoseDetectionOnFrames(
-    videoEl, canvasEl, statusEl, poseResults, intervalSeconds, frameNav, frameCounter, cropRect
+    videoEl,            // input video element 
+    canvasEl,           // canvas element for drawing results
+    statusEl,           // status element to display messages
+    poseResults,        // output array to hold results
+    intervalSeconds,    // detect every n seconds 
+    frameNav,           // frame navigation controls
+    frameCounter,       // frame counter display
+    cropRect            // cropping rectangle for the video
 ) {
     const vision = await FilesetResolver.forVisionTasks(
         "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
     );
+    
+    // Create Pose Landmarker
     const poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+        // Use lite model from MediaPipe Model Zoo
         baseOptions: {
             modelAssetPath:
                 "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
             delegate: "GPU"
         },
-        runningMode: "IMAGE",
-        numPoses: 1
+        runningMode: "IMAGE", // IMAGE mode for individual images
+        numPoses: 1           // Detect one pose
     });
 
+    // Clear previous results
     poseResults.length = 0;
     let crop = cropRect ? { ...cropRect } : null;
     let frameIdx = 0;
+    let isFirstFrame = true;
 
+    // Initialize VideoFrameExtractor
     const extractor = new VideoFrameExtractor(videoEl, canvasEl);
 
+    // Extract frames and run pose detection
     await extractor.extractFrames(intervalSeconds, async (frameUrl, t, frameWidth, frameHeight) => {
         const img = new Image();
         img.src = frameUrl;
         await new Promise(resolve => { img.onload = resolve; });
+
+        // Set shared image as the full frame (first frame only)
+        if (isFirstFrame) {
+            isFirstFrame = false;
+            // Create a canvas with the full frame size
+            const fullFrameCanvas = document.createElement('canvas');
+            fullFrameCanvas.width = img.width;
+            fullFrameCanvas.height = img.height;
+            const fullFrameCtx = fullFrameCanvas.getContext('2d');
+            fullFrameCtx.drawImage(img, 0, 0, img.width, img.height);
+            // Store as Data URL (or the canvas itself if you prefer)
+            setShared('firstFrameImage', fullFrameCanvas.toDataURL());
+        }
 
         // Snapshot crop for THIS frame
         const cropForThisFrame = crop ? { ...crop } : null;
@@ -74,6 +102,7 @@ export async function runPoseDetectionOnFrames(
         ctx.drawImage(img, 0, 0, frameWidth, frameHeight);
 
         let offsetLandmarks = [];
+
         if (result.landmarks && result.landmarks.length > 0 && cropForThisFrame) {
             const drawingUtils = new DrawingUtils(ctx);
 
