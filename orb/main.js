@@ -2,11 +2,7 @@
 // Main script for ORB feature detection and matching tool
 
 import { ORBModule } from './orb_module.js?v=20251104';
-import { 
-    setupCropBox,
-    getCropRectGeneric,
-    cropImage,
- } from './crop_utils.js?v=20251104';
+
 import { 
     loadImg, 
     matFromImageEl, 
@@ -15,6 +11,7 @@ import {
 import {getShared, setShared} from '../shared_state.js';
 import { PoseTransform } from './transform.js?v=20251104';
 import { drawLandmarksOnImage } from '../pose/draw_landmarks.js?v=20251104';
+import { CropBox } from '../CropBox.js?v=20251104'; 
 
 
 console.log('orb/main.js loaded');
@@ -60,15 +57,20 @@ const patchSize = el('patchSize');          // Patch size for ORB
 
 // Section elements for showing/hiding sections
 const detectOrb = el('detectOrb');
-const matchSection = el('matchSection');          
+const matchSection = el('matchSection'); 
 
+/* OLD CROP LOGIC, REMOVE ONCE CLASS IMPLEMENTED
 // Crop box for Image A
 const cropBox = document.getElementById('cropBoxOrb');
 // Crop box for Image B
 const cropBoxB = document.getElementById('cropBoxB'); 
 
 setupCropBox(imgA, cropBox);    // Initialize crop box for Image A
-setupCropBox(imgB, cropBoxB);   // Initialize crop box for Image B
+setupCropBox(imgB, cropBoxB);   // Initialize crop box for Image B*/
+
+// CropBox instances for Image A and B
+const cropBoxA = new CropBox(imgA, el('cropBoxOrbA'));
+const cropBoxB = new CropBox(imgB, el('cropBoxOrbB'));
 
 // ---------------------------------------------------------------------------
 // STATE 
@@ -88,8 +90,6 @@ const haveFeatures = () => Boolean(loadedJSON || detectResult);
 // ---------------------------------------------------------------------------
 // HELPERS 
 // ---------------------------------------------------------------------------
-
-
 
 /*___________________________________________________________________________
 
@@ -206,12 +206,12 @@ fileB.addEventListener('change', async () => {
     const f = fileB.files?.[0]; // get selected file
     if (!f) return;             // if no file, exit
     try {                       // try to load image
-        await loadImg(f, imgB, cropBoxB); // load image into imgB    
+        await loadImg(f, imgB); // load image into imgB    
         imgB.hidden = false;              // show imgB
-        cropBoxB.hidden = false;          // show crop box B
+        cropBoxB.cropBoxEl.hidden = false;          // show crop box B
         matchSection.hidden = false;      // show match section
 
-        // Get the rendered size of the image
+        /*// Get the rendered size of the image
         const imgRect = imgB.getBoundingClientRect();
         const parent = imgB.parentElement;
         parent.style.width = imgRect.width + 'px';
@@ -222,7 +222,7 @@ fileB.addEventListener('change', async () => {
         cropBoxB.style.left = '0px';                   // position left
         cropBoxB.style.top = '0px';                    // position top
         cropBoxB.style.width = imgRect.width + 'px';   // set width
-        cropBoxB.style.height = imgRect.height + 'px'; // set height
+        cropBoxB.style.height = imgRect.height + 'px'; // set height*/
         
         imgBReady = true;            // set imgBReady flag
         statsB.textContent = '';     // clear prev stats B
@@ -268,9 +268,9 @@ btnDetect.addEventListener('click', () => {
     const cv = window.cv;               // Get OpenCV.js reference 
     
     // Crop image A according to crop box and convert to Mat
-    const cropRect = getCropRectGeneric(imgA, cropBox); // get crop rectangle
-    const croppedCanvas = cropImage(imgA, cropRect);    // crop image to canvas
-    const src = matFromImageEl(croppedCanvas);            // convert to Mat     
+    const cropRectA = cropBoxA.getCropRect();     // get crop rectangle
+    const croppedCanvasA = cropBoxA.cropImage();  // crop image to canvas
+    const src = matFromImageEl(croppedCanvasA);   // convert to Mat     
 
     // Set ORB options from input fields, use defaults if inputs empty
     const opts = { 
@@ -292,8 +292,8 @@ btnDetect.addEventListener('click', () => {
         // Offset keypoints to full image coordinates
         const keypointsFullPx = detectResult.keypoints.map(kp => ({
             ...kp,                  // copy keypoint
-            x: kp.x + cropRect.x,   // offset x by crop rectangle
-            y: kp.y + cropRect.y,   // offset y by crop rectangle
+            x: kp.x + cropRectA.x,   // offset x by crop rectangle
+            y: kp.y + cropRectA.y,   // offset y by crop rectangle
         }))
 
         setShared('orbA', keypointsFullPx); // Store in shared state
@@ -321,7 +321,8 @@ btnDetect.addEventListener('click', () => {
         
         canvasA.hidden = false;         // show canvasA (image with keypoints)
         imgA.hidden = true;             // hide original imageA
-        cropBox.style.display = 'none'; // hide crop box when showing keypoints
+        
+        //cropBoxA.style.display = 'none'; // hide crop box when showing keypoints
         
         const fullMat = matFromImageEl(imgA); // Create Mat from full image A
         mod.drawKeypoints(                    // Draw keypoints on full image
@@ -383,8 +384,8 @@ btnMatch.addEventListener('click', () => {
     const cv = window.cv; // Get OpenCV.js reference
 
     // Crop image B according to crop box and convert to Mat
-    const cropRectB = getCropRectGeneric(imgB, cropBoxB);
-    const croppedCanvasB = cropImage(imgB, cropRectB);
+    const cropRectB = cropBoxB.getCropRect();
+    const croppedCanvasB = cropBoxB.cropImage();;
     const target = matFromImageEl(croppedCanvasB);
 
     // Options for ORB detection on image B 
@@ -454,7 +455,7 @@ btnMatch.addEventListener('click', () => {
             mod._lastCanvasMat // get last drawn matches Mat
         );
 
-        cropBoxB.style.display = 'none'; // hide crop box B
+        cropBoxB.cropBoxEl.style.display = 'none'; // hide crop box B
         canvasMatches.hidden = false;    // show matches canvas
         
         // Clean up
@@ -470,7 +471,10 @@ btnMatch.addEventListener('click', () => {
         //___________________________________________________________________________
         
         const kpA = getShared('orbA'); // get keypoints A from shared state
+        const imgSizeA = getShared('sizeA'); // Original image A size
+        let transformMat;
         console.log('Keypoints A:', kpA);
+        console.log('Image Size A:', imgSizeA);
 
 
         const [srcMatches, dstMatches] = matchesToArray(
@@ -508,7 +512,6 @@ btnMatch.addEventListener('click', () => {
        
         const poseTransformer = new PoseTransform(window.cv);
         const poseLandmarksAllFrames = getShared('poseA'); // Array of arrays (frames)
-        const imgSizeA = getShared('sizeA'); // Original image A size
         const transformedAllFrames = [];
 
         for (let i = 0; i < poseLandmarksAllFrames.length; i++) {
@@ -616,12 +619,14 @@ showOrbBtn.addEventListener('click', async () => {
     // Create a File object (optional, for consistency)
     const file = new File([blob], 'first_frame.png', { type: blob.type });
 
-    // Use your existing loadImg logic directly
-    await loadImg(file, imgA, cropBox);
-
+    
+    await loadImg(file, imgA);
     imgA.hidden = false;
-    cropBox.hidden = false;
-    detectOrb.hidden = false;
+    cropBoxOrbA.hidden = false;
+
+    /*
+    cropBoxA.hidden = false;
+    
 
     // Set up crop box and parent size as in your fileA handler
     const imgRect = imgA.getBoundingClientRect();
@@ -629,11 +634,11 @@ showOrbBtn.addEventListener('click', async () => {
     parent.style.width = imgRect.width + 'px';
     parent.style.height = imgRect.height + 'px';
 
-    cropBox.style.display = 'block';
-    cropBox.style.left = '0px';
-    cropBox.style.top = '0px';
-    cropBox.style.width = imgRect.width + 'px';
-    cropBox.style.height = imgRect.height + 'px';
+    /*cropBoxA.style.display = 'block';
+    cropBoxA.style.left = '0px';
+    cropBoxA.style.top = '0px';
+    cropBoxA.style.width = imgRect.width + 'px';
+    cropBoxA.style.height = imgRect.height + 'px';*/
 
     imgAReady = true;
     detectResult = null;

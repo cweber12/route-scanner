@@ -14,7 +14,7 @@ Output:
     - Promise that resolves when image is loaded and crop box initialized
 ______________________________________________________________________________ */
 
-export function loadImg(file, imgEl, cropBox) {
+export function loadImg(file, imgEl) {
     // Return a promise that resolves when the image is loaded
     return new Promise((res, rej) => {
     const r = new FileReader(); // FileReader to read the file
@@ -22,13 +22,13 @@ export function loadImg(file, imgEl, cropBox) {
         imgEl.onload = () => { // onload handler for image element
             imgEl.hidden = false; // show image element in UI
             
-            // Initialize crop box to cover the entire loaded image
+            /*// Initialize crop box to cover the entire loaded image
             const imgRect = imgEl.getBoundingClientRect(); // get image A bounding rect 
             cropBox.style.display = 'block'; // show crop box
             cropBox.style.left = '0px';      // align to left
             cropBox.style.top = '0px';       // align to top
             cropBox.style.width = imgRect.width + 'px';   // image width
-            cropBox.style.height = imgRect.height + 'px'; // image height
+            cropBox.style.height = imgRect.height + 'px'; // image height*/
             res(); 
         };
         imgEl.onerror = rej;    // onerror handler for image element
