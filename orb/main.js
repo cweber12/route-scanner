@@ -2,12 +2,14 @@
 // Main script for ORB feature detection and matching tool
 
 import { ORBModule } from './orb_module.js?v=20251104';
-import { setupCropBox } from './setup_crop_box.js?v=20251104';
+import { 
+    setupCropBox,
+    getCropRectGeneric,
+    cropImage,
+ } from './crop_utils.js?v=20251104';
 import { 
     loadImg, 
     matFromImageEl, 
-    cropImage, 
-    getCropRectGeneric, 
     matchesToArray, 
  } from './utils.js?v=20251104';
 import {getShared, setShared} from '../shared_state.js';

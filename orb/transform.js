@@ -7,7 +7,6 @@ export class PoseTransform {
   constructor(cv) {
     this.cv = cv;
   }
-
   // srcLandmarks: [{x, y}, ...] from image A (normalized or pixel)
   // dstLandmarks: [{x, y}, ...] from image B (pixel)
   // srcSize: {width, height} of image A (needed if srcLandmarks are normalized)
