@@ -4,7 +4,8 @@
 import { ORBModule } from './orb_module.js?v=20251104';
 import { setupCropBox } from './setup_crop_box.js?v=20251104';
 import { loadImg, matFromImageEl, cropImage } from './image_utils.js?v=20251104';
-import {getShared} from '../shared_state.js';
+import {getShared, setShared} from '../shared_state.js';
+import { PoseTransform } from './transform_pose.js?v=20251104';
 
 console.log('orb/main.js loaded');
 
@@ -126,11 +127,49 @@ function getCropRectGeneric(imgEl, cropBoxEl) {
     |                                 |
     ----------------------------------- <-- (imgRect.width, imgRect.height) */
 
-    // DEBUG
-    console.log('getCropRectGeneric:', {
-        imgRect, cropRect, scaleX, scaleY, result
-    });
     return result;       
+}
+
+/* ___________________________________________________________________________
+
+Transform computation from matched keypoints between two sets of ORB features
+  - matches: array of match objects with queryIdx and trainIdx
+  - keypointsA: array of keypoints from image A (normalized coordinates)
+  - keypointsB: array of keypoints from image B (pixel coordinates)
+  - imageSizeA: size of image A { width, height } for denormalization
+____________________________________________________________________________ */
+
+function computeTransformFromMatches(matches, keypointsA, keypointsB, imageSizeA) {
+    if (!Array.isArray(matches) || !Array.isArray(keypointsA) || !Array.isArray(keypointsB)) {
+        console.warn('Invalid arguments to computeTransformFromMatches');
+        return null;
+    }
+
+    // Build matched keypoint arrays in pixel coordinates
+    const matchedSrc = [];
+    const matchedDst = [];
+    for (const m of matches) {
+        // Source keypoint (normalized)
+        const sN = keypointsA[m.queryIdx];
+        // Target keypoint (pixel, from keypointsB)
+        const t = keypointsB[m.trainIdx];
+        matchedSrc.push({ x: sN.x * imageSizeA.width, y: sN.y * imageSizeA.height });
+        matchedDst.push({ x: t.x, y: t.y });
+    }
+
+    if (matchedSrc.length < 4 || matchedDst.length < 4) {
+        console.warn('Not enough matches to compute transform');
+        return null;
+    }
+
+    // Compute transform
+    const poseTransformer = new PoseTransform(window.cv);
+    return poseTransformer.computeTransform(
+        matchedSrc,
+        matchedDst,
+        { width: 1, height: 1 }, // already in pixels
+        'homography'
+    );
 }
 
 /*___________________________________________________________________________
@@ -194,8 +233,6 @@ Refresh button enabled/disabled states based on current app states
 ____________________________________________________________________________*/
 
 function refreshButtons() {    
-    // Log current states for debugging
-    console.log('refreshButtons', { cvReady, imgAReady, imgBReady, haveFeatures: haveFeatures(), detectResult });    
     // Enable/disable buttons based on current states
     btnDetect.disabled = !(cvReady && imgAReady); 
     btnDownload.disabled = !(detectResult && detectResult.descriptors); 
@@ -239,49 +276,6 @@ if (window.cvIsReady || (window.cv && (window.cv.Mat || window.cv.getBuildInform
 //---------------------------------------------------------------------------
 // EVENTS 
 // ---------------------------------------------------------------------------    
-
-/*___________________________________________________________________________
-
-Image A load event handler
-  - Loads image, initializes crop box, and updates state
-____________________________________________________________________________*/  
-
-/*fileA.addEventListener('change', async () => {
-    const f = fileA.files?.[0]; // get selected file
-    if (!f) return;             // if no file, exit
-    try {                       // try to load image
-        await loadImg(f, imgA, cropBox); // load image into imgA
-        imgA.hidden = false;             // show imgA
-        cropBox.hidden = false;          // show crop box
-        detectOrb.hidden = false;        // show ORB detection section
-
-        // Get the rendered size of the image
-        const imgRect = imgA.getBoundingClientRect();
-        const parent = imgA.parentElement;
-        parent.style.width = imgRect.width + 'px';
-        parent.style.height = imgRect.height + 'px';
-
-        // Initialize crop box to cover the whole image
-        cropBox.style.display = 'block';              // show crop box
-        cropBox.style.left = '0px';                   // position left
-        cropBox.style.top = '0px';                    // position top
-        cropBox.style.width = imgRect.width + 'px';   // set width
-        cropBox.style.height = imgRect.height + 'px'; // set height
-
-        // Update flags and reset previous state
-        imgAReady = true;         // set imgAReady flag
-        detectResult = null;      // reset previous detection result
-        statsA.textContent = '';  // clear stats
-        canvasA.hidden = true;    // hide canvasA
-    
-    // Catch any errors during image loading
-    } catch (e) {
-        console.error('Image A preview error', e);
-        imgAReady = false;
-        imgA.hidden = true;
-    }
-    refreshButtons(); // refresh button states
-});*/
 
 /*___________________________________________________________________________
 
@@ -382,6 +376,8 @@ btnDetect.addEventListener('click', () => {
             x: kp.x + cropRect.x,   // offset x by crop rectangle
             y: kp.y + cropRect.y,   // offset y by crop rectangle
         }))
+
+        setShared('orbA', keypointsFullPx); // Store in shared state
         // Start from the module's standard JSON (descriptors + normalized to CROPPED size)
         const baseJson = mod.exportJSON(detectResult);
 
@@ -546,6 +542,53 @@ btnMatch.addEventListener('click', () => {
         A.delete();
         B.delete();
         mod._releaseLastCanvasMat();
+
+        console.log('Match result:', res.matches);
+        console.log('Offset Keypoints B:', offsetKeypointsB);
+        console.log('Image Size:', source.imageSize);
+        
+        // Compute transform from matches 
+        //___________________________________________________________________________
+        
+        const kpA = getShared('orbA'); // get keypoints A from shared state
+        console.log('Keypoints A:', kpA);
+
+        const transformMat = computeTransformFromMatches(
+            res.matches,
+            kpA,
+            offsetKeypointsB,
+            source.imageSize
+        );
+        
+        if (!transformMat || transformMat.empty()) {
+            console.error('Homography computation failed: transformMat is empty.');
+            return;
+        }
+        console.log('Homography matrix data:', transformMat.data64F || transformMat.data32F);
+                
+        // Apply transform to pose landmarks 
+        //___________________________________________________________________________
+       
+        const poseTransformer = new PoseTransform(window.cv);
+        const poseLandmarksAllFrames = getShared('poseA'); // Array of arrays (frames)
+        const transformedAllFrames = [];
+
+        for (let i = 0; i < poseLandmarksAllFrames.length; i++) {
+        const frameLandmarks = poseLandmarksAllFrames[i];
+        if (!frameLandmarks || frameLandmarks.length === 0) continue; // skip empty frames
+
+        const transformed = poseTransformer.transformLandmarks(
+            frameLandmarks,
+            source.imageSize,
+            transformMat,
+            'homography'
+        );
+        transformedAllFrames.push(transformed);
+        }
+
+        console.log('All Transformed Pose Landmarks:', transformedAllFrames);
+        setShared('transformedPoseLandmarks', transformedAllFrames);
+
     // Catch any errors during matching
     } catch (e) {
         console.error('Match error', e);
@@ -567,7 +610,6 @@ ____________________________________________________________________________*/
 showOrbBtn.addEventListener('click', async () => {
     console.log('Switching to ORB mode');
     const dataUrl = await getShared('firstFrameImage');
-    console.log('firstFrameImage dataUrl:', dataUrl);
     if (!dataUrl) {
         alert('No shared first frame image found.');
         return;

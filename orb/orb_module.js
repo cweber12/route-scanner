@@ -112,8 +112,6 @@ export class ORBModule {
       } : null
     };
 
-    setShared('orbA', json); // Store in shared state
-
     return json;
   }
 

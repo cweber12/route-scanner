@@ -62,10 +62,7 @@ export async function runPoseDetectionOnFrames(
             const fullFrameCtx = fullFrameCanvas.getContext('2d');
             fullFrameCtx.drawImage(img, 0, 0, img.width, img.height);
             // Store as Data URL (or the canvas itself if you prefer)
-            setShared('firstFrameImage', fullFrameCanvas.toDataURL());
-            console.log('setShared firstFrameImage: ', fullFrameCanvas.toDataURL());
-            const tempShared = getShared('firstFrameImage');
-            console.log('getShared firstFrameImage: ', tempShared);
+            setShared('firstFrameImage', fullFrameCanvas.toDataURL());           
         }
 
         // Snapshot crop for THIS frame
@@ -126,6 +123,7 @@ export async function runPoseDetectionOnFrames(
                     ctx.fill();
                 });
 
+
                 // Draw connectors using full-frame normalized coords
                 const normalizedLandmarks = offsetLandmarks.map(lm => ({
                     x: lm.x / canvasEl.width,
@@ -171,6 +169,7 @@ export async function runPoseDetectionOnFrames(
             landmarks: offsetLandmarks,
             cropRect: cropForThisFrame ? { ...cropForThisFrame } : null
         });
+
     });
 
     let currentFrameIdx = 0; // Ensure this is defined at the top

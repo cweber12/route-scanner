@@ -1,3 +1,8 @@
+// transform_pose.js
+// Module to compute and apply transformation matrices between matched pose landmarks using OpenCV.js
+
+import { getShared } from '../shared_state.js';
+
 export class PoseTransform {
   constructor(cv) {
     this.cv = cv;
@@ -19,6 +24,7 @@ export class PoseTransform {
       srcPts.push(lm.x * srcSize.width);
       srcPts.push(lm.y * srcSize.height);
     }
+    
     const dstPts = [];
     for (const lm of dstLandmarks) {
       dstPts.push(lm.x);
@@ -50,6 +56,7 @@ export class PoseTransform {
   transformLandmarks(landmarks, srcSize, M, method = 'homography') {
     const cv = this.cv;
     const pts = [];
+
     for (const lm of landmarks) {
       pts.push(lm.x * srcSize.width);
       pts.push(lm.y * srcSize.height);
@@ -74,7 +81,6 @@ export class PoseTransform {
 
     ptsMat.delete();
     outMat.delete();
-    if (M) M.delete();
 
     return out;
   }

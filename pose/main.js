@@ -86,6 +86,15 @@ videoFileInput.addEventListener('change', (e) => {
   statusEl.textContent = "Loading video..."; // Update status
 });
 
+// Normalization function
+function normalizeLandmarks(landmarks, refWidth, refHeight) {
+  return landmarks.map(lm => ({
+    ...lm,
+    x: lm.x / refWidth,
+    y: lm.y / refHeight
+  }));
+}
+
 // Frame detection button click event
 frameDetectBtn.addEventListener('click', async function handleFrameDetect() {
   frameNav.style.display = 'none'; // Hide frame navigation
@@ -150,6 +159,7 @@ frameDetectBtn.addEventListener('click', async function handleFrameDetect() {
       frameCounter,
       cropRect
     );
+
     showOrbBtn.disabled = poseResults.length === 0;
     downloadBtn.disabled = poseResults.length === 0;
     frameDetectBtn.removeEventListener('click', confirmCropHandler);
@@ -157,44 +167,27 @@ frameDetectBtn.addEventListener('click', async function handleFrameDetect() {
     await loadOpenCV();
     console.log('OpenCV loaded');
 
+    setShared('poseA', poseResults.map(frame => frame.landmarks));
+    console.log('Pose Landmarks:', poseResults.map(frame => frame.landmarks));
+
   }, { once: true });
 });
-
-// Normalization function
-function normalizeLandmarks(landmarks, refWidth, refHeight) {
-  return landmarks.map(lm => ({
-    ...lm,
-    x: lm.x / refWidth,
-    y: lm.y / refHeight
-  }));
-}
 
 downloadBtn.addEventListener('click', () => {
   if (poseResults.length === 0) {
     alert("No pose data collected yet.");
     return;
   }
-
-  const normalizedResults = poseResults.map(result => ({
-    ...result,
-    landmarks: normalizeLandmarks(
-      result.landmarks, 
-      videoEl.videoWidth, 
-      videoEl.videoHeight
-    )
-  }));
-
-  setShared('poseA', normalizedResults);
   
   const blob = new Blob([
-    JSON.stringify(normalizedResults, null, 2)
-  ], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = "pose_landmarks.json";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+    JSON.stringify(normalizedResults, null, 2)], 
+      { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = "pose_landmarks.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
 });
