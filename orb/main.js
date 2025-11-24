@@ -3,7 +3,13 @@
 
 import { ORBModule } from './orb_module.js?v=20251104';
 import { setupCropBox } from './setup_crop_box.js?v=20251104';
-import { loadImg, matFromImageEl, cropImage } from './image_utils.js?v=20251104';
+import { 
+    loadImg, 
+    matFromImageEl, 
+    cropImage, 
+    getCropRectGeneric, 
+    matchesToArray, 
+ } from './utils.js?v=20251104';
 import {getShared, setShared} from '../shared_state.js';
 import { PoseTransform } from './transform.js?v=20251104';
 import { drawLandmarksOnImage } from '../pose/draw_landmarks.js?v=20251104';
@@ -81,98 +87,7 @@ const haveFeatures = () => Boolean(loadedJSON || detectResult);
 // HELPERS 
 // ---------------------------------------------------------------------------
 
-/* ___________________________________________________________________________
 
-Generic function to get crop rectangle relative to an image element
-  - imgEl: HTMLImageElement
-  - cropBoxEl: crop box HTML element
-____________________________________________________________________________ */
-
-function getCropRectGeneric(imgEl, cropBoxEl) {
-    const imgRect = imgEl.getBoundingClientRect();      // rendered image rect
-    const cropRect = cropBoxEl.getBoundingClientRect(); // crop box rect
-    
-    /* Calculate scale factors between natural image size and displayed size
-       to account for resizing (with CSS) in the browser.
-        - naturalWidth/Height: original image size
-        - imgRect.width/height: displayed size when rendered in browser */
-    const scaleX = imgEl.naturalWidth / imgRect.width;   // scale factor X
-    const scaleY = imgEl.naturalHeight / imgRect.height; // scale factor Y   
-    
-    // calculate crop rectangle in natural image coordinates 
-    // NOTE: See diagram below for coordinate reference
-    const result = {    
-        x: Math.round((cropRect.left - imgRect.left) * scaleX),
-        y: Math.round((cropRect.top - imgRect.top) * scaleY),
-        width: Math.round(cropRect.width * scaleX),
-        height: Math.round(cropRect.height * scaleY)
-    };
-
-    /* 
-    DIAGRAM OF IMG AND CROP BOX COORDINATES
-
-    (imgRect.left, imgRect.top)
-    |
-    V    (cropRect.left, cropRect.top)
-    -----|----------------------------- 
-    |    |     IMAGE ELEMENT          |  
-    |    |                            |    
-    |    |                            |
-    |    |                            |
-    |    V                            |
-    |    ----------------------       | 
-    |    |                    |       |
-    |    |     CROP BOX       |       |
-    |    |                    |       |
-    |    |                    |       |
-    |    ---------------------- <-----|---- (cropRect.width, cropRect.height)
-    |                                 |
-    ----------------------------------- <-- (imgRect.width, imgRect.height) */
-
-    return result;       
-}
-
-/* ___________________________________________________________________________
-
-Transform computation from matched keypoints between two sets of ORB features
-  - matches: array of match objects with queryIdx and trainIdx
-  - keypointsA: array of keypoints from image A (normalized coordinates)
-  - keypointsB: array of keypoints from image B (pixel coordinates)
-  - imageSizeA: size of image A { width, height } for denormalization
-____________________________________________________________________________ */
-
-function computeTransformFromMatches(matches, keypointsA, keypointsB, imageSizeA) {
-    if (!Array.isArray(matches) || !Array.isArray(keypointsA) || !Array.isArray(keypointsB)) {
-        console.warn('Invalid arguments to computeTransformFromMatches');
-        return null;
-    }
-
-    // Build matched keypoint arrays in pixel coordinates
-    const matchedSrc = [];
-    const matchedDst = [];
-    for (const m of matches) {
-        // Source keypoint (normalized)
-        const sN = keypointsA[m.queryIdx];
-        // Target keypoint (pixel, from keypointsB)
-        const t = keypointsB[m.trainIdx];
-        matchedSrc.push({ x: sN.x * imageSizeA.width, y: sN.y * imageSizeA.height });
-        matchedDst.push({ x: t.x, y: t.y });
-    }
-
-    if (matchedSrc.length < 4 || matchedDst.length < 4) {
-        console.warn('Not enough matches to compute transform');
-        return null;
-    }
-
-    // Compute transform
-    const poseTransformer = new PoseTransform(window.cv);
-    return poseTransformer.computeTransform(
-        matchedSrc,
-        matchedDst,
-        { width: 1, height: 1 }, // already in pixels
-        'homography'
-    );
-}
 
 /*___________________________________________________________________________
 
@@ -353,7 +268,7 @@ btnDetect.addEventListener('click', () => {
     // Crop image A according to crop box and convert to Mat
     const cropRect = getCropRectGeneric(imgA, cropBox); // get crop rectangle
     const croppedCanvas = cropImage(imgA, cropRect);    // crop image to canvas
-    const src = matFromImageEl(croppedCanvas);          // convert to Mat     
+    const src = matFromImageEl(croppedCanvas);            // convert to Mat     
 
     // Set ORB options from input fields, use defaults if inputs empty
     const opts = { 
@@ -555,13 +470,31 @@ btnMatch.addEventListener('click', () => {
         const kpA = getShared('orbA'); // get keypoints A from shared state
         console.log('Keypoints A:', kpA);
 
-        const transformMat = computeTransformFromMatches(
+
+        const [srcMatches, dstMatches] = matchesToArray(
             res.matches,
             kpA,
             offsetKeypointsB,
             source.imageSize
         );
+
+        if (!srcMatches || !dstMatches) {
+            console.error('Not enough matches to compute transform.');
+            return;
         
+        } else {
+            console.log('Source Matches:', srcMatches);
+            console.log('Destination Matches:', dstMatches);
+            // Compute transform
+            const poseTransformer = new PoseTransform(window.cv);
+            transformMat =  poseTransformer.computeTransform(
+                srcMatches,
+                dstMatches,
+                imgSizeA,
+                'homography'
+            );
+        }
+    
         if (!transformMat || transformMat.empty()) {
             console.error('Homography computation failed: transformMat is empty.');
             return;
@@ -573,6 +506,7 @@ btnMatch.addEventListener('click', () => {
        
         const poseTransformer = new PoseTransform(window.cv);
         const poseLandmarksAllFrames = getShared('poseA'); // Array of arrays (frames)
+        const imgSizeA = getShared('sizeA'); // Original image A size
         const transformedAllFrames = [];
 
         for (let i = 0; i < poseLandmarksAllFrames.length; i++) {
@@ -581,7 +515,7 @@ btnMatch.addEventListener('click', () => {
 
         const transformed = poseTransformer.transformLandmarks(
             frameLandmarks,
-            source.imageSize,
+            imgSizeA,
             transformMat,
             'homography'
         );

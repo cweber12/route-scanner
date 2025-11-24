@@ -169,6 +169,14 @@ frameDetectBtn.addEventListener('click', async function handleFrameDetect() {
 
     setShared('poseA', poseResults.map(frame => frame.landmarks));
     console.log('Pose Landmarks:', poseResults.map(frame => frame.landmarks));
+    setShared('sizeA', {
+      width: videoEl.videoWidth,
+      height: videoEl.videoHeight
+    });
+    console.log('Image Size:', {
+      width: videoEl.videoWidth,
+      height: videoEl.videoHeight
+    });
 
   }, { once: true });
 });
