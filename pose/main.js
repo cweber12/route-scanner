@@ -1,7 +1,6 @@
 // main.js
 // Main entry point: choose mode and run pose detection
-//import { runPoseDetectionOnVideo } from './pose_landmarker_video.js';
-import { runPoseDetectionOnFrames } from './pose_landmarker_frame.js';
+import { runPoseDetectionOnFrames } from './pose_module.js';
 import { VideoFrameExtractor } from './video_frame_extractor.js';
 import { setupCropBox } from './setup_crop_box.js';
 import { loadOpenCV } from '../load_opencv.js';
@@ -10,6 +9,7 @@ import { setShared } from '../shared_state.js';
 //-------------------------------------------------------------
 // DOM ELEMENTS
 //-------------------------------------------------------------
+
 // File input for video
 const videoFileInput = document.getElementById('videoFile'); 
 // HTML video element 
@@ -191,3 +191,4 @@ downloadBtn.addEventListener('click', () => {
     a.remove();
     URL.revokeObjectURL(url);
 });
+

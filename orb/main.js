@@ -5,7 +5,9 @@ import { ORBModule } from './orb_module.js?v=20251104';
 import { setupCropBox } from './setup_crop_box.js?v=20251104';
 import { loadImg, matFromImageEl, cropImage } from './image_utils.js?v=20251104';
 import {getShared, setShared} from '../shared_state.js';
-import { PoseTransform } from './transform_pose.js?v=20251104';
+import { PoseTransform } from './transform.js?v=20251104';
+import { drawLandmarksOnImage } from '../pose/draw_landmarks.js?v=20251104';
+
 
 console.log('orb/main.js loaded');
 
@@ -588,6 +590,64 @@ btnMatch.addEventListener('click', () => {
 
         console.log('All Transformed Pose Landmarks:', transformedAllFrames);
         setShared('transformedPoseLandmarks', transformedAllFrames);
+
+        // Draw transformed landmarks on copies of image B and store the images
+        //___________________________________________________________________________
+
+        const drawnImages = [];
+        for (let i = 0; i < transformedAllFrames.length; i++) {
+            const landmarks = transformedAllFrames[i];
+            if (!landmarks || landmarks.length === 0) continue;
+
+            // Create a new canvas for each frame
+            const tempCanvas = document.createElement('canvas');
+            // Draw landmarks on a copy of image B
+            drawLandmarksOnImage(tempCanvas, imgB, landmarks, 'red');
+            // Store the image as a data URL
+            drawnImages.push(tempCanvas.toDataURL());
+        }
+
+        // Optionally, store in shared state for later use
+        setShared('landmarkImagesOnB', drawnImages);
+
+        console.log('Drawn images with landmarks:', drawnImages);
+
+        // Display images with drawn landmarks
+        //___________________________________________________________________________
+
+        // Elements for landmark navigation
+        const landmarkNav = document.getElementById('landmarkNav');
+        const prevLandmarkBtn = document.getElementById('prevLandmarkBtn');
+        const nextLandmarkBtn = document.getElementById('nextLandmarkBtn');
+        const landmarkFrameCounter = document.getElementById('landmarkFrameCounter');
+        const landmarkFrameImg = document.getElementById('landmarkFrameImg');
+
+        let landmarkImages = [];
+        let landmarkFrameIdx = 0;
+
+        function showLandmarkFrame(idx) {
+            if (!landmarkImages.length) return;
+            landmarkFrameIdx = Math.max(0, Math.min(idx, landmarkImages.length - 1));
+            landmarkFrameImg.src = landmarkImages[landmarkFrameIdx];
+            landmarkFrameCounter.textContent = `Frame ${landmarkFrameIdx + 1} / ${landmarkImages.length}`;
+            prevLandmarkBtn.disabled = landmarkFrameIdx === 0;
+            nextLandmarkBtn.disabled = landmarkFrameIdx === landmarkImages.length - 1;
+        }
+
+        prevLandmarkBtn.addEventListener('click', () => showLandmarkFrame(landmarkFrameIdx - 1));
+        nextLandmarkBtn.addEventListener('click', () => showLandmarkFrame(landmarkFrameIdx + 1));
+
+        // After you generate drawnImages:
+        landmarkImages = drawnImages;
+        if (landmarkImages.length > 0) {
+            landmarkNav.style.display = '';
+            showLandmarkFrame(0);
+            landmarkFrameImg.style.display = '';
+        } else {
+            landmarkNav.style.display = 'none';
+            landmarkFrameImg.style.display = 'none';
+        }
+
 
     // Catch any errors during matching
     } catch (e) {

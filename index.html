@@ -129,7 +129,16 @@
                     </div>   
                 </div>
                 <canvas id="canvasMatches" class="orb-canvas" style="width:100%;" hidden></canvas>
-                <div id="statsB" class="mono muted"></div>  
+                <div id="statsB" class="mono muted"></div> 
+                <!-- Transformed Landmarks Frame Navigation -->
+                <div id="landmarkNav" style="display:none; margin:24px 0px; gap: 10px; justify-self: center;">
+                    <button id="prevLandmarkBtn">Previous</button>
+                    <span id="landmarkFrameCounter"></span>
+                    <button id="nextLandmarkBtn">Next</button>
+                </div>
+                <div style="text-align:center;">
+                    <img id="landmarkFrameImg" style="max-width:90%; margin: 16px 0;" />
+                </div> 
             </div>  
         </div>
 

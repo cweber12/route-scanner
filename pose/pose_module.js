@@ -8,7 +8,8 @@ import {
     DrawingUtils
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/vision_bundle.js";
 import { VideoFrameExtractor } from './video_frame_extractor.js';
-import {getShared, setShared} from '../shared_state.js';    
+import {setShared} from '../shared_state.js'; 
+import { drawLandmarksOnImage } from './draw_landmarks.js'; 
 
 // Run pose detection on extracted video frames at specified interval
 export async function runPoseDetectionOnFrames(
@@ -72,6 +73,7 @@ export async function runPoseDetectionOnFrames(
         const croppedCanvas = document.createElement('canvas');
         const croppedCtx = croppedCanvas.getContext('2d');
 
+        // If cropForThisFrame is defined, crop the image
         if (cropForThisFrame) {
             croppedCanvas.width = cropForThisFrame.width;
             croppedCanvas.height = cropForThisFrame.height;
@@ -81,6 +83,7 @@ export async function runPoseDetectionOnFrames(
                 cropForThisFrame.width, cropForThisFrame.height,
                 0, 0, cropForThisFrame.width, cropForThisFrame.height
             );
+        // Else use full image
         } else {
             croppedCanvas.width  = img.width;
             croppedCanvas.height = img.height;
@@ -93,19 +96,12 @@ export async function runPoseDetectionOnFrames(
         await new Promise(resolve => { croppedImg.onload = resolve; });
 
         const result = poseLandmarker.detect(croppedImg);
-
-        // --- 3) Draw landmarks on ORIGINAL frame using cropForThisFrame ---
-        canvasEl.width = frameWidth;
-        canvasEl.height = frameHeight;
-        const ctx = canvasEl.getContext('2d');
-        ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
-        ctx.drawImage(img, 0, 0, frameWidth, frameHeight);
-
         let offsetLandmarks = [];
-
+        
+        // 3.  Draw landmarks on ORIGINAL frame using cropForThisFrame offset
         if (result.landmarks && result.landmarks.length > 0 && cropForThisFrame) {
-            const drawingUtils = new DrawingUtils(ctx);
-
+            
+            // Offset 
             for (const landmarkSet of result.landmarks) {
                 offsetLandmarks = landmarkSet.map(lm => ({
                     ...lm,
@@ -114,30 +110,9 @@ export async function runPoseDetectionOnFrames(
                     z: lm.z,
                     visibility: lm.visibility
                 }));
-
-                // Draw points
-                offsetLandmarks.forEach(lm => {
-                    ctx.beginPath();
-                    ctx.arc(lm.x, lm.y, 4, 0, 2 * Math.PI);
-                    ctx.fillStyle = 'lime';
-                    ctx.fill();
-                });
-
-
-                // Draw connectors using full-frame normalized coords
-                const normalizedLandmarks = offsetLandmarks.map(lm => ({
-                    x: lm.x / canvasEl.width,
-                    y: lm.y / canvasEl.height,
-                    z: lm.z,
-                    visibility: lm.visibility
-                }));
-                drawingUtils.drawConnectors(
-                    normalizedLandmarks,
-                    PoseLandmarker.POSE_CONNECTIONS,
-                    { color: 'lime', lineWidth: 2 }
-                );
+                drawLandmarksOnImage(canvasEl, img, offsetLandmarks, 'lime');
             }
-        }
+        } 
 
         // --- 4) Now update `crop` for the NEXT frame ---
         if (crop && result.landmarks && result.landmarks.length > 0) {
