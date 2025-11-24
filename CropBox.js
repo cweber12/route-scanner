@@ -139,8 +139,14 @@ export class CropBox {
     getCropRect() {
         const imgRect = this.imgEl.getBoundingClientRect();
         const cropRect = this.cropBoxEl.getBoundingClientRect();
-        const scaleX = this.imgEl.naturalWidth / imgRect.width;
-        const scaleY = this.imgEl.naturalHeight / imgRect.height;
+        const isVideo = this.imgEl instanceof HTMLVideoElement;
+        // Calculate scale factors from displayed to natural size
+        const scaleX = isVideo
+            ? this.imgEl.videoWidth / imgRect.width
+            : this.imgEl.naturalWidth / imgRect.width;
+        const scaleY = isVideo
+            ? this.imgEl.videoHeight / imgRect.height
+            : this.imgEl.naturalHeight / imgRect.height;
         return {
             x: Math.round((cropRect.left - imgRect.left) * scaleX),
             y: Math.round((cropRect.top - imgRect.top) * scaleY),

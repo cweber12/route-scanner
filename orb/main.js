@@ -7,6 +7,7 @@ import {
     loadImg, 
     matFromImageEl, 
     matchesToArray, 
+    imshowCompat,
  } from './utils.js?v=20251104';
 import {getShared, setShared} from '../shared_state.js';
 import { PoseTransform } from './transform.js?v=20251104';
@@ -16,65 +17,69 @@ import { CropBox } from '../CropBox.js?v=20251104';
 
 console.log('orb/main.js loaded');
 
-// ---------------------------------------------------------------------------
-// ELEMENTS 
-// ---------------------------------------------------------------------------
+/*___________________________________________________________________________________
+                                  DOM ELEMENTS
+___________________________________________________________________________________*/
 
 // Helper to get element by ID
 const el = (id) => document.getElementById(id);
 
 // File elements
-const fileA = el('fileA');       // File input for Image A
-const imgA = el('imgA');         // Image A element
-const canvasA = el('canvasA');   // Canvas for Image A display
-const fileJSON = el('fileJSON'); // File input for features.json
-const fileB = el('fileB');       // File input for Image B
-const imgB = el('imgB');         // Image B element
-const imgWrapperB = el('imgWrapperB'); // Wrapper for Image B
+const fileA         = el('fileA'); // File input for Image A
+const imgA          = el('imgA'); // Image A element
+const fileJSON      = el('fileJSON'); // File input for features.json
+const fileB         = el('fileB'); // File input for Image B
+const imgB          = el('imgB'); // Image B element
 
-// Canvas for displaying matches
-const canvasMatches = el('canvasMatches'); 
+// Canvas elements
+const canvasA       = el('canvasA'); // Display keypoints on Image A
+const canvasMatches = el('canvasMatches'); // Display matches between A and B
 
 // Action buttons
-const btnDetect = el('btnDetect');      // Detect features button
-const btnDownload = el('btnDownload');  // Download features.json button
-const btnMatch = el('btnMatch');        // Match features button
-const showOrbBtn = el('showOrb');       // Show ORB button to switch to ORB mode
+const btnDetect     = el('btnDetect'); // Detect features button
+const btnDownload   = el('btnDownload'); // Download features.json button
+const btnMatch      = el('btnMatch'); // Match features button
+const showOrbBtn    = el('showOrb'); // Show ORB button to switch to ORB mode
 
-// ORB detection stats elements
-const statsA = el('statsA');  
-const statsB = el('statsB');
+// ORB detection stats 
+const statsA        = el('statsA'); // Stats display for Image A
+const statsB        = el('statsB'); // Stats display for Image B
 
 // ORB parameters elements
-const nfeatures = el('nfeatures');          // Number of features to detect
-const ratio = el('ratio');                  // Ratio for feature matching
-const ransac = el('ransac');                // RANSAC threshold
-const edgeThreshold = el('edgeThreshold');  // Edge threshold for ORB
-const scaleFactor = el('scaleFactor');      // Scale factor for ORB
-const nlevels = el('nlevels');              // Number of levels in the pyramid
-const fastThreshold = el('fastThreshold');  // FAST threshold for ORB
-const patchSize = el('patchSize');          // Patch size for ORB
+const nfeatures     = el('nfeatures'); // Number of features to detect
+const ratio         = el('ratio'); // Ratio for feature matching
+const ransac        = el('ransac'); // RANSAC threshold
+const edgeThreshold = el('edgeThreshold'); // Edge threshold for ORB
+const scaleFactor   = el('scaleFactor'); // Scale factor for ORB
+const nlevels       = el('nlevels'); // Number of levels in the pyramid
+const fastThreshold = el('fastThreshold'); // FAST threshold for ORB
+const patchSize     = el('patchSize'); // Patch size for ORB
+
+// Elements for landmark navigation
+const landmarkNav   = el('landmarkNav'); // Navigation container
+const prevBtn       = el('prevBtn'); // Previous frame button
+const nextBtn       = el('nextBtn'); // Next frame button
+const frameCounter  = el('frameCounter'); // Frame counter display
+const frameImg      = el('frameImg'); // Frame image display
 
 // Section elements for showing/hiding sections
-const detectOrb = el('detectOrb');
-const matchSection = el('matchSection'); 
+const detectOrb     = el('detectOrb'); // Detect ORB section
+const matchSection = el('matchSection'); // Match features section 
 
-/* OLD CROP LOGIC, REMOVE ONCE CLASS IMPLEMENTED
-// Crop box for Image A
-const cropBox = document.getElementById('cropBoxOrb');
-// Crop box for Image B
-const cropBoxB = document.getElementById('cropBoxB'); 
-
-setupCropBox(imgA, cropBox);    // Initialize crop box for Image A
-setupCropBox(imgB, cropBoxB);   // Initialize crop box for Image B*/
+/*___________________________________________________________________________________
+                            GLOBAL VARIABLES
+___________________________________________________________________________________*/
 
 // CropBox instances for Image A and B
 const cropBoxA = new CropBox(imgA, el('cropBoxOrbA'));
 const cropBoxB = new CropBox(imgB, el('cropBoxOrbB'));
 
-// ---------------------------------------------------------------------------
-// STATE 
-// ---------------------------------------------------------------------------
+// Check if features available (from detection or loaded JSON)
+const haveFeatures = () => Boolean(loadedJSON || detectResult);
+
+/*___________________________________________________________________________________
+                                  STATE 
+___________________________________________________________________________________*/
 
 let mod;                    // ORBModule instance
 let cvReady = false;        // OpenCV.js readiness flag 
@@ -84,91 +89,23 @@ let detectResult = null;    // Detection result state
 let loadedJSON = null;      // Loaded JSON state
 let detectJSON = null;      // Detected features JSON state
 
-// Check if features available (from detection or loaded JSON)
-const haveFeatures = () => Boolean(loadedJSON || detectResult);
+/*___________________________________________________________________________________
+                                 HELPERS 
+  __________________________________________________________________________________*/ 
 
-// ---------------------------------------------------------------------------
-// HELPERS 
-// ---------------------------------------------------------------------------
 
-/*___________________________________________________________________________
+/*___________________________________________________________________________________
+    INIT ORB MODULE
+    Initialize ORBModule when OpenCV.js is ready
+___________________________________________________________________________________*/
 
-Draw a Mat on a canvas using cv.imshow if available, else converts Mat 
-to ImageData and draws manually.
-   - canvas: HTMLCanvasElement to draw on
-   - mat: cv.Mat to display 
-____________________________________________________________________________*/
-
-function imshowCompat(canvas, mat) {    
-    // if the build supports imshow
-    if (window.cv.imshow) {             
-        window.cv.imshow(canvas, mat);  // use it directly
-        return;                         // done
-    }    
-    // placeholder for RGBA Mat
-    let rgba = mat; 
-    // If the Mat is in 3-channel RGB format (CV_8UC3)
-    //   - convert to 4-channel RGBA
-    if (mat.type() === window.cv.CV_8UC3) {
-        rgba = new window.cv.Mat();   // Temporary Mat for conversion
-        window.cv.cvtColor(           // Convert to RGBA
-            mat,                      //   - source Mat
-            rgba,                     //   - destination Mat
-            window.cv.COLOR_RGB2RGBA  //   - color conversion code
-        );
-    // If the Mat is not already in 4-channel RGBA format (CV_8UC4)
-    //   - convert to RGBA
-    } else if (mat.type() !== window.cv.CV_8UC4) {
-        const tmp = new window.cv.Mat(); // Temporary Mat for conversion
-        window.cv.cvtColor(              // Convert to RGBA
-            mat,                         //   - source Mat               
-            tmp,                         //   - destination Mat
-            window.cv.COLOR_RGBA2RGBA    //   - color conversion code
-        ); 
-        rgba = tmp; // Use converted Mat                                         
-    // If the Mat is already in RGBA format
-    } else {
-        rgba = mat.clone(); // clone to avoid modifying original 
-    }
-    // Create ImageData from the RGBA Mat data
-    const imageData = new ImageData(
-        new Uint8ClampedArray(rgba.data), // pixel data
-        rgba.cols,                        // width 
-        rgba.rows                         // height
-    );
-    // Resize the canvas and put the ImageData onto it
-    canvas.width = rgba.cols;   // set canvas width
-    canvas.height = rgba.rows;  // set canvas height
-    // Draw ImageData to canvas
-    canvas.getContext('2d').putImageData(imageData, 0, 0); 
-    // Clean up temporary Mat if created
-    rgba.delete(); 
-}
-
-/*___________________________________________________________________________
-
-Refresh button enabled/disabled states based on current app states
-  - Ensures buttons are only enabled when the right conditions are met
-____________________________________________________________________________*/
-
-function refreshButtons() {    
-    // Enable/disable buttons based on current states
-    btnDetect.disabled = !(cvReady && imgAReady); 
-    btnDownload.disabled = !(detectResult && detectResult.descriptors); 
-    btnMatch.disabled = !(cvReady && imgBReady && haveFeatures()); 
-}
-/*___________________________________________________________________________
-
-Initialize ORBModule when OpenCV.js is ready
-____________________________________________________________________________*/
-
-function onCvReady() {   
+function initOrbModule() {   
     // Create ORBModule instance
     try {
         mod = new ORBModule(window.cv); // create ORBModule instance
         cvReady = true;                 // set cvReady flag        
         // DEBUG
-        console.log('onCvReady → cvReady=true');    
+        console.log('initOrbModule → cvReady=true');    
         console.log('cv.imread:', typeof window.cv.imread);    
     // Catch any errors during initialization
     } catch (e) {
@@ -177,29 +114,36 @@ function onCvReady() {
     }   
     // Refresh button states
     refreshButtons();
+}/*
+___________________________________________________________________________________
+    REFRESH BUTTONS   
+    Enable or disable buttons based on current states
+___________________________________________________________________________________*/
+
+function refreshButtons() {    
+    // Enable/disable buttons based on current states
+    btnDetect.disabled = !(cvReady && imgAReady); 
+    btnDownload.disabled = !(detectResult && detectResult.descriptors); 
+    btnMatch.disabled = !(cvReady && imgBReady && haveFeatures()); 
 }
 
 /*___________________________________________________________________________
-
-Check if OpenCV.js is already ready before setting up event listeners
-  - if ready, call onCvReady immediately
-  - else, set up event listener for 'cv-ready' event
-____________________________________________________________________________*/
+    Make sure OpenCV.js is ready before initializing ORBModule and loading 
+    event handlers */
 
 if (window.cvIsReady || (window.cv && (window.cv.Mat || window.cv.getBuildInformation))) {
-    onCvReady();
+    initOrbModule();
 } else {
-    document.addEventListener('cv-ready', onCvReady, { once: true });
+    document.addEventListener('cv-ready', initOrbModule, { once: true });
 }
 
-//---------------------------------------------------------------------------
-// EVENTS 
-// ---------------------------------------------------------------------------    
+/*___________________________________________________________________________
+                                EVENT HANDLERS
+____________________________________________________________________________*/   
 
 /*___________________________________________________________________________
-
-Image B load event handler
-  - Loads image, initializes crop box, and updates state
+    UPLOAD IMAGE FILE B    
+    Load and preview Image B from file input
 ____________________________________________________________________________*/
 
 fileB.addEventListener('change', async () => {
@@ -210,19 +154,6 @@ fileB.addEventListener('change', async () => {
         imgB.hidden = false;              // show imgB
         cropBoxB.cropBoxEl.hidden = false;          // show crop box B
         matchSection.hidden = false;      // show match section
-
-        /*// Get the rendered size of the image
-        const imgRect = imgB.getBoundingClientRect();
-        const parent = imgB.parentElement;
-        parent.style.width = imgRect.width + 'px';
-        parent.style.height = imgRect.height + 'px';
-
-        // Initialize crop box to cover the whole image
-        cropBoxB.style.display = 'block';              // show crop box B
-        cropBoxB.style.left = '0px';                   // position left
-        cropBoxB.style.top = '0px';                    // position top
-        cropBoxB.style.width = imgRect.width + 'px';   // set width
-        cropBoxB.style.height = imgRect.height + 'px'; // set height*/
         
         imgBReady = true;            // set imgBReady flag
         statsB.textContent = '';     // clear prev stats B
@@ -238,9 +169,8 @@ fileB.addEventListener('change', async () => {
 });
 
 /*___________________________________________________________________________
-
-features.json load event handler
-  - Loads and parses features.json file
+    UPLOAD JSON FILE
+    Load and parse features.json file with ORB features from image A
 ____________________________________________________________________________*/
 
 fileJSON.addEventListener('change', async () => {
@@ -257,10 +187,8 @@ fileJSON.addEventListener('change', async () => {
 });
 
 /*___________________________________________________________________________
-
-Detect ORB features on Image A
-  - Crops image according to crop box and runs ORB detection
-  - Updates stats and displays keypoints on canvas
+    DETECT ORB FEATURES ON IMAGE A
+    Crop image A according to crop box and run ORB detection
 ____________________________________________________________________________*/
 
 btnDetect.addEventListener('click', () => {
@@ -291,9 +219,9 @@ btnDetect.addEventListener('click', () => {
         const fullH = imgA.naturalHeight || imgA.height;
         // Offset keypoints to full image coordinates
         const keypointsFullPx = detectResult.keypoints.map(kp => ({
-            ...kp,                  // copy keypoint
-            x: kp.x + cropRectA.x,   // offset x by crop rectangle
-            y: kp.y + cropRectA.y,   // offset y by crop rectangle
+            ...kp,                 // copy keypoint
+            x: kp.x + cropRectA.x, // offset x by crop rectangle
+            y: kp.y + cropRectA.y, // offset y by crop rectangle
         }))
 
         setShared('orbA', keypointsFullPx); // Store in shared state
@@ -302,7 +230,7 @@ btnDetect.addEventListener('click', () => {
 
         // Build JSON
         detectJSON = {
-            ...baseJson,                                // copy base JSON
+            ...baseJson, // copy base JSON
             imageSize: { width: fullW, height: fullH }, // full image size
             // Normalize keypoints to full image size [0 - 1]
             keypoints: keypointsFullPx.map(kp => ({     
@@ -319,16 +247,14 @@ btnDetect.addEventListener('click', () => {
             `keypoints: ${detectResult.keypoints.length}\n` +
             `descriptors: ${detectResult.descriptors?.rows ?? 0} x ${detectResult.descriptors?.cols ?? 0}`;
         
-        canvasA.hidden = false;         // show canvasA (image with keypoints)
-        imgA.hidden = true;             // hide original imageA
-        
-        //cropBoxA.style.display = 'none'; // hide crop box when showing keypoints
+        canvasA.hidden = false; // show canvasA (image with keypoints)
+        imgA.hidden = true; // hide original imageA
         
         const fullMat = matFromImageEl(imgA); // Create Mat from full image A
         mod.drawKeypoints(                    // Draw keypoints on full image
-            fullMat,          // full image Mat
-            keypointsFullPx,  // keypoints with full image coordinates
-            canvasA           // canvas to draw on
+            fullMat,         // full image Mat
+            keypointsFullPx, // keypoints with full image coordinates
+            canvasA          // canvas to draw on
         );
         fullMat.delete(); 
     // Catch any errors during detection
@@ -345,10 +271,8 @@ btnDetect.addEventListener('click', () => {
 });
 
 /*___________________________________________________________________________
-
-Download detected features as features.json 
-  - features.json contains keypoints and descriptors
-  - used for matching to image B later
+    DOWNLOAD FEATURES.JSON
+    Download detected ORB features as features.json file
 ____________________________________________________________________________*/
 
 btnDownload.addEventListener('click', () => {
@@ -366,12 +290,12 @@ btnDownload.addEventListener('click', () => {
     URL.revokeObjectURL(a.href);           // revoke object URL
 });
 
-/*___________________________________________________________________________
-
-Match features from Image A to Image B
-    - Crops image B according to crop box and runs ORB detection
-    - Matches features from loaded JSON or detected features on image A
-    - Draws matches on full images
+/*___________________________________________________________________________   
+    MATCH FEATURES 
+    - Match features from loaded JSON or detected features on image A to
+      features detected on cropped image B 
+    - Compute homography from matches to generate transform
+    - Apply transform to pose landmarks.
 ____________________________________________________________________________*/
 
 btnMatch.addEventListener('click', () => {
@@ -413,11 +337,11 @@ btnMatch.addEventListener('click', () => {
         // Match features
         const res = mod.matchToTarget(
             { ...source, keypoints: keypointsA }, // source features
-            target,                               // target Mat (image B)
-            {                                     // matching options
-                useKnn: true,
-                ratio: Number(ratio.value) || 0.75,
-                ransacReprojThreshold: Number(ransac.value) || 3.0
+            target, // target Mat (image B)   
+            { // matching options
+                useKnn: true, // use k-NN matching
+                ratio: Number(ratio.value) || 0.75, // ratio test threshold
+                ransacReprojThreshold: Number(ransac.value) || 3.0 // RANSAC reproj threshold
             }
         );
 
@@ -467,8 +391,9 @@ btnMatch.addEventListener('click', () => {
         console.log('Offset Keypoints B:', offsetKeypointsB);
         console.log('Image Size:', source.imageSize);
         
-        // Compute transform from matches 
-        //___________________________________________________________________________
+        
+        /*___________________________________________________________________________
+        Compute transform from matches */
         
         const kpA = getShared('orbA'); // get keypoints A from shared state
         const imgSizeA = getShared('sizeA'); // Original image A size
@@ -506,9 +431,9 @@ btnMatch.addEventListener('click', () => {
             return;
         }
         console.log('Homography matrix data:', transformMat.data64F || transformMat.data32F);
-                
-        // Apply transform to pose landmarks 
-        //___________________________________________________________________________
+                 
+        /*___________________________________________________________________________
+        Apply transform to pose landmarks */
        
         const poseTransformer = new PoseTransform(window.cv);
         const poseLandmarksAllFrames = getShared('poseA'); // Array of arrays (frames)
@@ -530,8 +455,8 @@ btnMatch.addEventListener('click', () => {
         console.log('All Transformed Pose Landmarks:', transformedAllFrames);
         setShared('transformedPoseLandmarks', transformedAllFrames);
 
-        // Draw transformed landmarks on copies of image B and store the images
-        //___________________________________________________________________________
+        /*___________________________________________________________________________
+        Draw transformed landmarks on copies of image B and store the images */
 
         const drawnImages = [];
         for (let i = 0; i < transformedAllFrames.length; i++) {
@@ -551,15 +476,9 @@ btnMatch.addEventListener('click', () => {
 
         console.log('Drawn images with landmarks:', drawnImages);
 
-        // Display images with drawn landmarks
-        //___________________________________________________________________________
-
-        // Elements for landmark navigation
-        const landmarkNav = document.getElementById('landmarkNav');
-        const prevLandmarkBtn = document.getElementById('prevLandmarkBtn');
-        const nextLandmarkBtn = document.getElementById('nextLandmarkBtn');
-        const landmarkFrameCounter = document.getElementById('landmarkFrameCounter');
-        const landmarkFrameImg = document.getElementById('landmarkFrameImg');
+        
+        /*___________________________________________________________________________
+        Display images with drawn landmarks */
 
         let landmarkImages = [];
         let landmarkFrameIdx = 0;
@@ -567,24 +486,24 @@ btnMatch.addEventListener('click', () => {
         function showLandmarkFrame(idx) {
             if (!landmarkImages.length) return;
             landmarkFrameIdx = Math.max(0, Math.min(idx, landmarkImages.length - 1));
-            landmarkFrameImg.src = landmarkImages[landmarkFrameIdx];
-            landmarkFrameCounter.textContent = `Frame ${landmarkFrameIdx + 1} / ${landmarkImages.length}`;
-            prevLandmarkBtn.disabled = landmarkFrameIdx === 0;
-            nextLandmarkBtn.disabled = landmarkFrameIdx === landmarkImages.length - 1;
+            frameImg.src = landmarkImages[landmarkFrameIdx];
+            frameCounter.textContent = `Frame ${landmarkFrameIdx + 1} / ${landmarkImages.length}`;
+            prevBtn.disabled = landmarkFrameIdx === 0;
+            nextBtn.disabled = landmarkFrameIdx === landmarkImages.length - 1;
         }
 
-        prevLandmarkBtn.addEventListener('click', () => showLandmarkFrame(landmarkFrameIdx - 1));
-        nextLandmarkBtn.addEventListener('click', () => showLandmarkFrame(landmarkFrameIdx + 1));
+        prevBtn.addEventListener('click', () => showLandmarkFrame(landmarkFrameIdx - 1));
+        nextBtn.addEventListener('click', () => showLandmarkFrame(landmarkFrameIdx + 1));
 
         // After you generate drawnImages:
         landmarkImages = drawnImages;
         if (landmarkImages.length > 0) {
             landmarkNav.style.display = '';
             showLandmarkFrame(0);
-            landmarkFrameImg.style.display = '';
+            frameImg.style.display = '';
         } else {
             landmarkNav.style.display = 'none';
-            landmarkFrameImg.style.display = 'none';
+            frameImg.style.display = 'none';
         }
 
 
@@ -600,10 +519,10 @@ btnMatch.addEventListener('click', () => {
 });
 
 /*___________________________________________________________________________
-
-Show ORB detection section and load first frame from shared state
-  - Hides pose detection section
-  - Loads first frame image into Image A for ORB detection
+    SHOW ORB DETECTION SECTION
+    
+    Get first frame image from shared state and display it in imgA for
+    ORB detection.
 ____________________________________________________________________________*/
 
 showOrbBtn.addEventListener('click', async () => {
@@ -613,36 +532,20 @@ showOrbBtn.addEventListener('click', async () => {
         alert('No shared first frame image found.');
         return;
     }
-    // Convert Data URL to Blob
-    const res = await fetch(dataUrl);
-    const blob = await res.blob();
-    // Create a File object (optional, for consistency)
+    
+    const res = await fetch(dataUrl); // Fetch the data URL
+    const blob = await res.blob(); // Convert to Blob
+    
+    // Create a File object 
     const file = new File([blob], 'first_frame.png', { type: blob.type });
+   
+    await loadImg(file, imgA); // Load image into imgA
 
+    imgA.hidden         = false; // show imgA
+    imgAReady           = true; // set imgAReady flag
+    detectResult        = null; // reset previous detection result
+    statsA.textContent  = ''; // clear stats A
+    canvasA.hidden      = true; // hide canvas A
     
-    await loadImg(file, imgA);
-    imgA.hidden = false;
-    cropBoxOrbA.hidden = false;
-
-    /*
-    cropBoxA.hidden = false;
-    
-
-    // Set up crop box and parent size as in your fileA handler
-    const imgRect = imgA.getBoundingClientRect();
-    const parent = imgA.parentElement;
-    parent.style.width = imgRect.width + 'px';
-    parent.style.height = imgRect.height + 'px';
-
-    /*cropBoxA.style.display = 'block';
-    cropBoxA.style.left = '0px';
-    cropBoxA.style.top = '0px';
-    cropBoxA.style.width = imgRect.width + 'px';
-    cropBoxA.style.height = imgRect.height + 'px';*/
-
-    imgAReady = true;
-    detectResult = null;
-    statsA.textContent = '';
-    canvasA.hidden = true;
-    refreshButtons();
+    refreshButtons(); // refresh buttons
 });

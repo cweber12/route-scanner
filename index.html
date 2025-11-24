@@ -20,7 +20,7 @@
                 </label>
 
                 <!-- Detect Pose Landmarks in Extracted Frames -->            
-                <button id="frameDetectBtn" disabled>Detect Pose Landmarks</button>
+                <button id="poseDetectBtn" disabled>Detect Pose Landmarks</button>
                 <!-- Stop Detection -->
                 <button id="stopBtn" disabled>Stop</button>
                 <!-- Download JSON Data -->
@@ -132,12 +132,12 @@
                 <div id="statsB" class="mono muted"></div> 
                 <!-- Transformed Landmarks Frame Navigation -->
                 <div id="landmarkNav" style="display:none; margin:24px 0px; gap: 10px; justify-self: center;">
-                    <button id="prevLandmarkBtn">Previous</button>
-                    <span id="landmarkFrameCounter"></span>
-                    <button id="nextLandmarkBtn">Next</button>
+                    <button id="prevBtn">Previous</button>
+                    <span id="frameCounter"></span>
+                    <button id="nextBtn">Next</button>
                 </div>
                 <div style="text-align:center;">
-                    <img id="landmarkFrameImg" style="max-width:90%; margin: 16px 0;" />
+                    <img id="frameImg" style="max-width:90%; margin: 16px 0;" />
                 </div> 
             </div>  
         </div>

@@ -71,8 +71,64 @@ export function matFromImageEl(imgEl) {
     mat.data.set(imageData.data); // copy RGBA buffer in
     return mat;                   // return CV_8UC4 Mat
 }
+
+/*___________________________________________________________________________________
+    SHOW MAT ON CANVAS
+
+    Draw a Mat on a canvas using cv.imshow if available, else converts Mat 
+    to ImageData and draws manually.
+    - canvas: HTMLCanvasElement to draw on
+    - mat: cv.Mat to display 
+___________________________________________________________________________________*/
+
+export function imshowCompat(canvas, mat) {    
+    // if the build supports imshow
+    if (window.cv.imshow) {             
+        window.cv.imshow(canvas, mat);  // use it directly
+        return;                         // done
+    }    
+    // placeholder for RGBA Mat
+    let rgba = mat; 
+    // If the Mat is in 3-channel RGB format (CV_8UC3)
+    //   - convert to 4-channel RGBA
+    if (mat.type() === window.cv.CV_8UC3) {
+        rgba = new window.cv.Mat();   // Temporary Mat for conversion
+        window.cv.cvtColor(           // Convert to RGBA
+            mat,                      //   - source Mat
+            rgba,                     //   - destination Mat
+            window.cv.COLOR_RGB2RGBA  //   - color conversion code
+        );
+    // If the Mat is not already in 4-channel RGBA format (CV_8UC4)
+    //   - convert to RGBA
+    } else if (mat.type() !== window.cv.CV_8UC4) {
+        const tmp = new window.cv.Mat(); // Temporary Mat for conversion
+        window.cv.cvtColor(              // Convert to RGBA
+            mat,                         //   - source Mat               
+            tmp,                         //   - destination Mat
+            window.cv.COLOR_RGBA2RGBA    //   - color conversion code
+        ); 
+        rgba = tmp; // Use converted Mat                                         
+    // If the Mat is already in RGBA format
+    } else {
+        rgba = mat.clone(); // clone to avoid modifying original 
+    }
+    // Create ImageData from the RGBA Mat data
+    const imageData = new ImageData(
+        new Uint8ClampedArray(rgba.data), // pixel data
+        rgba.cols,                        // width 
+        rgba.rows                         // height
+    );
+    // Resize the canvas and put the ImageData onto it
+    canvas.width = rgba.cols;   // set canvas width
+    canvas.height = rgba.rows;  // set canvas height
+    // Draw ImageData to canvas
+    canvas.getContext('2d').putImageData(imageData, 0, 0); 
+    // Clean up temporary Mat if created
+    rgba.delete(); 
+}
+
 /* 
-___________________________________________________________________________
+___________________________________________________________________________________
 SAVE MATCHES TO ARRAYS
 
 Transform computation from matched keypoints between two sets of ORB features

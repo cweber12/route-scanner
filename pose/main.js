@@ -5,43 +5,42 @@ import { VideoFrameExtractor } from './video_frame_extractor.js';
 import { setupCropBox } from './setup_crop_box.js';
 import { loadOpenCV } from '../load_opencv.js';
 import { setShared } from '../shared_state.js';
+import { CropBox } from '../CropBox.js';
 
-//-------------------------------------------------------------
-// DOM ELEMENTS
-//-------------------------------------------------------------
+/*___________________________________________________________________________________
+                                  DOM ELEMENTS
+___________________________________________________________________________________*/
 
-// File input for video
-const videoFileInput = document.getElementById('videoFile'); 
-// HTML video element 
-const videoEl = document.getElementById('video');
-// Overlay canvas for drawing landmarks
-const canvasEl = document.getElementById('overlay');
-// Frame detection button
-const frameDetectBtn = document.getElementById('frameDetectBtn');
-// Download button for results
-const downloadBtn = document.getElementById('downloadBtn');
-// Show ORB button to switch to ORB mode
-const showOrbBtn = document.getElementById('showOrb');
-// Status display element
-const statusEl = document.getElementById('status');
-// Interval input for frame extraction
-const intervalInput = document.getElementById('intervalInput');
-// Element containing prev/next frame buttons and counter
-const frameNav = document.getElementById('frameNav');
-// Displays current frame number in frameNav
-const frameCounter = document.getElementById('frameCounter');
-// Crop box element to select ROI to detect within
-const cropBoxEl = document.getElementById('cropBoxPose');
-// Results
-const poseResults = [];
+// Helper to get element by ID
+const el = (id) => document.getElementById(id);
 
-//-------------------------------------------------------------
-// EVENT LISTENERS
-//-------------------------------------------------------------
+const videoFileInput = el('videoFile');    // Video file input element
+const videoEl = el('video');               // Video element
+const canvasEl = el('overlay');            // Canvas element for overlay
+const poseDetectBtn = el('poseDetectBtn'); // Button to start pose detection
+const downloadBtn = el('downloadBtn');     // Button to download results
+const showOrbBtn = el('showOrb');          // Button to show ORB features
+const statusEl = el('status');             // Status display element
+const intervalInput = el('intervalInput'); // Input for frame interval
+const frameNav = el('frameNav');           // Frame navigation element
+const frameCounter = el('frameCounter');   // Frame counter display
+const cropBoxEl = el('cropBoxPose');       // Crop box element
+
+/*___________________________________________________________________________________
+                              GLOBAL VARIABLES
+___________________________________________________________________________________*/
+
+const poseResults = []; // Array to store pose detection results
+// CropBox instance for selecting region of interest
+const cropBox = new CropBox(videoEl, cropBoxEl);
+
+/*___________________________________________________________________________________
+                              SETUP AND EVENT HANDLERS
+___________________________________________________________________________________*/
 
 // Video loaded metadata event
 videoEl.addEventListener('loadedmetadata', () => {
-  frameDetectBtn.disabled = false;
+  poseDetectBtn.disabled = false;
 
   // Adjust canvas pixel buffer size
   canvasEl.width = videoEl.videoWidth;    // match video width
@@ -55,13 +54,12 @@ videoEl.addEventListener('loadedmetadata', () => {
   const videoRect = videoEl.getBoundingClientRect(); // get displayed video size
   canvasEl.style.width = videoRect.width + 'px';    // match displayed video width
   canvasEl.style.height = videoRect.height + 'px';  // match displayed video height
-  cropBoxEl.style.width = videoRect.width + 'px';   // match displayed video width
-  cropBoxEl.style.height = videoRect.height + 'px'; // match displayed video height
-  cropBoxEl.style.left = '0px'; // align left
-  cropBoxEl.style.top = '0px';  // align top
 
+  // Show and size crop box
+  cropBoxEl.hidden = false;
+  
   // Update status
-  statusEl.textContent = "Video loaded. Click \"Detect Pose Landmarks\" to start.";
+  statusEl.textContent = "Adjust crop box over subject and click \"Detect Pose Landmarks\".";
 });
 
 // Window resize event to adjust canvas and crop box size
@@ -82,7 +80,7 @@ videoFileInput.addEventListener('change', (e) => {
   // Set video source to selected file
   const url = URL.createObjectURL(file); // Create object URL for the file
   videoEl.src = url; // Set video element source to the file URL
-  frameDetectBtn.disabled = true; // Disable frame detect button until video is loaded
+  poseDetectBtn.disabled = true; // Disable pose detect button until video is loaded
   statusEl.textContent = "Loading video..."; // Update status
 });
 
@@ -96,7 +94,7 @@ function normalizeLandmarks(landmarks, refWidth, refHeight) {
 }
 
 // Frame detection button click event
-frameDetectBtn.addEventListener('click', async function handleFrameDetect() {
+poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
   frameNav.style.display = 'none'; // Hide frame navigation
   canvasEl.style.display = ''; // Show canvas
   videoEl.style.display = ''; // Show video
@@ -111,74 +109,44 @@ frameDetectBtn.addEventListener('click', async function handleFrameDetect() {
     videoEl.onseeked = resolve;
   });
 
-  // Show crop box over video
-  cropBoxEl.hidden = false;
-  cropBoxEl.style.left = '0px';
-  cropBoxEl.style.top = '0px';
-  setupCropBox(videoEl, cropBoxEl);
+  // Get crop rectangle in video pixel coordinates using CropBox class
+  const cropRect = cropBox.getCropRect();
+  cropRect.left = cropRect.x;
+  cropRect.top = cropRect.y;
 
-  // Update status
-  statusEl.textContent = "Adjust crop box, set interval, then click \"Detect Pose Landmarks\" again to confirm crop and start detection.";
+  // Get interval n
+  const n = parseInt(intervalInput.value, 10) || 1;
+  poseResults.length = 0;
+  downloadBtn.disabled = true;
 
-  // Replace this handler with a one-time confirm handler
-  frameDetectBtn.removeEventListener('click', handleFrameDetect);
-  frameDetectBtn.addEventListener('click', async function confirmCropHandler() {   
-    // Hide crop box
-    cropBoxEl.hidden = true;
-    
-    // Get crop rectangle in video pixel coordinates
-    const videoRect = videoEl.getBoundingClientRect();
-    // Calculate scale between displayed video size and actual video size
-    const scaleX = videoEl.videoWidth  / videoRect.width;
-    // Calculate scale between displayed video size and actual video size
-    const scaleY = videoEl.videoHeight / videoRect.height;
+  // Run pose detection on frames with cropping
+  await runPoseDetectionOnFrames(
+    videoEl,
+    canvasEl,
+    statusEl,
+    poseResults,
+    n,
+    frameNav,
+    frameCounter,
+    cropRect
+  );
 
-    // Calculate crop rectangle in video pixel coordinates
-    const cropRect = {
-      left:   Math.round(parseInt(cropBoxEl.style.left, 10)   * scaleX),
-      top:    Math.round(parseInt(cropBoxEl.style.top, 10)    * scaleY),
-      width:  Math.round(parseInt(cropBoxEl.style.width, 10)  * scaleX),
-      height: Math.round(parseInt(cropBoxEl.style.height, 10) * scaleY)
-    };
+  showOrbBtn.disabled = poseResults.length === 0;
+  downloadBtn.disabled = poseResults.length === 0;
+  await loadOpenCV();
+  console.log('OpenCV loaded');
 
-    // Get interval n
-    const n = parseInt(intervalInput.value, 10) || 1;
-    // Clear previous results
-    poseResults.length = 0;
-    // Disable download button until results are ready
-    downloadBtn.disabled = true;
+  setShared('poseA', poseResults.map(frame => frame.landmarks));
+  console.log('Pose Landmarks:', poseResults.map(frame => frame.landmarks));
+  setShared('sizeA', {
+    width: videoEl.videoWidth,
+    height: videoEl.videoHeight
+  });
+  console.log('Image Size:', {
+    width: videoEl.videoWidth,
+    height: videoEl.videoHeight
+  });
 
-    // Run pose detection on frames with cropping
-    await runPoseDetectionOnFrames(
-      videoEl,
-      canvasEl,
-      statusEl,
-      poseResults,
-      n,
-      frameNav,
-      frameCounter,
-      cropRect
-    );
-
-    showOrbBtn.disabled = poseResults.length === 0;
-    downloadBtn.disabled = poseResults.length === 0;
-    frameDetectBtn.removeEventListener('click', confirmCropHandler);
-    frameDetectBtn.addEventListener('click', handleFrameDetect);
-    await loadOpenCV();
-    console.log('OpenCV loaded');
-
-    setShared('poseA', poseResults.map(frame => frame.landmarks));
-    console.log('Pose Landmarks:', poseResults.map(frame => frame.landmarks));
-    setShared('sizeA', {
-      width: videoEl.videoWidth,
-      height: videoEl.videoHeight
-    });
-    console.log('Image Size:', {
-      width: videoEl.videoWidth,
-      height: videoEl.videoHeight
-    });
-
-  }, { once: true });
 });
 
 downloadBtn.addEventListener('click', () => {
