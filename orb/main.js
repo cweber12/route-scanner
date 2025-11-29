@@ -2,6 +2,8 @@
 // Main script for ORB feature detection and matching tool
 
 import { ORBModule } from './orb_module.js?v=20251104';
+import { CropBox } from '../CropBox.js?v=20251104'; 
+import { PoseTransform } from '../PoseTransform.js?v=20251104';
 
 import { 
     loadImg, 
@@ -9,11 +11,9 @@ import {
     matchesToArray, 
     imshowCompat,
  } from './utils.js?v=20251104';
+ 
 import {getShared, setShared} from '../shared_state.js';
-import { PoseTransform } from './transform.js?v=20251104';
 import { drawLandmarksOnImage } from '../pose/draw_landmarks.js?v=20251104';
-import { CropBox } from '../CropBox.js?v=20251104'; 
-
 
 console.log('orb/main.js loaded');
 
@@ -24,26 +24,25 @@ ________________________________________________________________________________
 // Helper to get element by ID
 const el = (id) => document.getElementById(id);
 
-// File elements
-const fileA         = el('fileA'); // File input for Image A
-const imgA          = el('imgA'); // Image A element
-const fileJSON      = el('fileJSON'); // File input for features.json
-const fileB         = el('fileB'); // File input for Image B
-const imgB          = el('imgB'); // Image B element
+// File input elements
+const imgA     = el('imgA'); // Image A element
+const fileJSON = el('fileJSON'); // File input for features.json
+const fileB    = el('fileB'); // File input for Image B
+const imgB     = el('imgB'); // Image B element
 
 // Canvas elements
 const canvasA       = el('canvasA'); // Display keypoints on Image A
 const canvasMatches = el('canvasMatches'); // Display matches between A and B
 
 // Action buttons
-const btnDetect     = el('btnDetect'); // Detect features button
-const btnDownload   = el('btnDownload'); // Download features.json button
-const btnMatch      = el('btnMatch'); // Match features button
-const showOrbBtn    = el('showOrb'); // Show ORB button to switch to ORB mode
+const btnDetect   = el('btnDetect'); // Detect features button
+const btnDownload = el('btnDownload'); // Download features.json button
+const btnMatch    = el('btnMatch'); // Match features button
+const showOrbBtn  = el('showOrb'); // Show ORB button to switch to ORB mode
 
 // ORB detection stats 
-const statsA        = el('statsA'); // Stats display for Image A
-const statsB        = el('statsB'); // Stats display for Image B
+const statsA = el('statsA'); // Stats display for Image A
+const statsB = el('statsB'); // Stats display for Image B
 
 // ORB parameters elements
 const nfeatures     = el('nfeatures'); // Number of features to detect
@@ -63,7 +62,7 @@ const frameCounter  = el('frameCounter'); // Frame counter display
 const frameImg      = el('frameImg'); // Frame image display
 
 // Section elements for showing/hiding sections
-const detectOrb     = el('detectOrb'); // Detect ORB section
+const detectOrb    = el('detectOrb'); // Detect ORB section
 const matchSection = el('matchSection'); // Match features section 
 
 /*___________________________________________________________________________________
@@ -77,59 +76,55 @@ const cropBoxB = new CropBox(imgB, el('cropBoxOrbB'));
 // Check if features available (from detection or loaded JSON)
 const haveFeatures = () => Boolean(loadedJSON || detectResult);
 
+let mod; // ORBModule instance
+let opts; // ORB options
+
 /*___________________________________________________________________________________
-                                  STATE 
+                                  STATES
 ___________________________________________________________________________________*/
 
-let mod;                    // ORBModule instance
-let cvReady = false;        // OpenCV.js readiness flag 
-let imgAReady = false;      // Image A readiness flag
-let imgBReady = false;      // Image B readiness flag
-let detectResult = null;    // Detection result state
-let loadedJSON = null;      // Loaded JSON state
-let detectJSON = null;      // Detected features JSON state
+let cvReady      = false; // OpenCV.js readiness flag 
+let imgAReady    = false; // Image A readiness flag
+let imgBReady    = false; // Image B readiness flag
+let detectResult = null; // Detection result state
+let loadedJSON   = null; // Loaded JSON state
+let detectJSON   = null; // Detected features JSON state
 
 /*___________________________________________________________________________________
                                  HELPERS 
   __________________________________________________________________________________*/ 
 
-
-/*___________________________________________________________________________________
-    INIT ORB MODULE
-    Initialize ORBModule when OpenCV.js is ready
-___________________________________________________________________________________*/
+/*------------------------------------------------------------------------------------
+INIT ORB MODULE
+Initialize ORBModule when OpenCV.js is ready */
 
 function initOrbModule() {   
     // Create ORBModule instance
     try {
-        mod = new ORBModule(window.cv); // create ORBModule instance
-        cvReady = true;                 // set cvReady flag        
-        // DEBUG
-        console.log('initOrbModule → cvReady=true');    
-        console.log('cv.imread:', typeof window.cv.imread);    
-    // Catch any errors during initialization
+        mod     = new ORBModule(window.cv); // create ORBModule instance
+        cvReady = true; // set cvReady flag         
     } catch (e) {
         console.error('cv init error', e);  
         cvReady = false;                    
     }   
     // Refresh button states
     refreshButtons();
-}/*
-___________________________________________________________________________________
-    REFRESH BUTTONS   
-    Enable or disable buttons based on current states
-___________________________________________________________________________________*/
-
-function refreshButtons() {    
-    // Enable/disable buttons based on current states
-    btnDetect.disabled = !(cvReady && imgAReady); 
-    btnDownload.disabled = !(detectResult && detectResult.descriptors); 
-    btnMatch.disabled = !(cvReady && imgBReady && haveFeatures()); 
 }
 
-/*___________________________________________________________________________
-    Make sure OpenCV.js is ready before initializing ORBModule and loading 
-    event handlers */
+/*------------------------------------------------------------------------------------
+REFRESH BUTTONS   
+Enable or disable buttons based on current states */
+
+function refreshButtons() {    
+    btnDetect.disabled   = !(cvReady && imgAReady); 
+    btnDownload.disabled = !(detectResult && detectResult.descriptors); 
+    btnMatch.disabled    = !(cvReady && imgBReady && haveFeatures()); 
+}
+
+/*------------------------------------------------------------------------------------
+VERIFY OPENCV.JS IS READY
+Make sure OpenCV.js is ready before initializing ORBModule and loading 
+event handlers */
 
 if (window.cvIsReady || (window.cv && (window.cv.Mat || window.cv.getBuildInformation))) {
     initOrbModule();
@@ -141,73 +136,67 @@ if (window.cvIsReady || (window.cv && (window.cv.Mat || window.cv.getBuildInform
                                 EVENT HANDLERS
 ____________________________________________________________________________*/   
 
-/*___________________________________________________________________________
-    UPLOAD IMAGE FILE B    
-    Load and preview Image B from file input
-____________________________________________________________________________*/
+/*---------------------------------------------------------------------------
+IMAGE B UPLOAD     
+Load and preview Image B from file input */
 
 fileB.addEventListener('change', async () => {
     const f = fileB.files?.[0]; // get selected file
-    if (!f) return;             // if no file, exit
-    try {                       // try to load image
-        await loadImg(f, imgB); // load image into imgB    
-        imgB.hidden = false;              // show imgB
-        cropBoxB.cropBoxEl.hidden = false;          // show crop box B
-        matchSection.hidden = false;      // show match section
-        
-        imgBReady = true;            // set imgBReady flag
-        statsB.textContent = '';     // clear prev stats B
-        canvasMatches.hidden = true; // hide prev matches canvas
+    if (!f) return; // if no file, exit
+    try { 
+        await loadImg(f, imgB); // load image into imgB   
+        imgB.hidden               = false; // show imgB
+        cropBoxB.cropBoxEl.hidden = false; // show crop box B
+        matchSection.hidden       = false; // show match section        
+        imgBReady                 = true; // set imgBReady flag
+        statsB.textContent        = ''; // clear prev stats B
+        canvasMatches.hidden      = true; // hide prev matches canvas
     
-    // Catch any errors during image loading
-    } catch (e) {
+    } catch (e) { // catch load errors
         console.error('Image B preview error', e);
-        imgBReady = false;
-        imgB.hidden = true;
+        imgBReady   = false; // clear imgBReady flag
+        imgB.hidden = true; // hide imgB
     }
     refreshButtons(); // refresh button states
 });
 
-/*___________________________________________________________________________
-    UPLOAD JSON FILE
-    Load and parse features.json file with ORB features from image A
-____________________________________________________________________________*/
+/*--------------------------------------------------------------------------- 
+JSON FILE UPLOAD
+Load and parse features.json file with ORB features from image A */
 
 fileJSON.addEventListener('change', async () => {
     const f = fileJSON.files?.[0]; // get selected file
-    if (!f) return;                // if no file, exit
-    try {                          // parse JSON
-        loadedJSON = JSON.parse(await f.text()); 
-    // catch parse errors 
-    } catch (e) {                                    
+    if (!f) return; // if no file, exit
+    try { // parse JSON
+        loadedJSON = JSON.parse(await f.text());  
+    } catch (e) { // catch parse errors                                  
         console.error('JSON parse error', e);
         loadedJSON = null;
     }
     refreshButtons(); // refresh button states
 });
 
-/*___________________________________________________________________________
-    DETECT ORB FEATURES ON IMAGE A
-    Crop image A according to crop box and run ORB detection
-____________________________________________________________________________*/
+/*--------------------------------------------------------------------------- 
+DETECT BUTTON ACTIONS
+Detect ORB features on cropped Image A */
 
 btnDetect.addEventListener('click', () => {
     if (!cvReady || !imgAReady) return; // If not ready, exit
-    const cv = window.cv;               // Get OpenCV.js reference 
+    const cv = window.cv; // Get OpenCV.js reference 
     
     // Crop image A according to crop box and convert to Mat
-    const cropRectA = cropBoxA.getCropRect();     // get crop rectangle
-    const croppedCanvasA = cropBoxA.cropImage();  // crop image to canvas
-    const src = matFromImageEl(croppedCanvasA);   // convert to Mat     
+    const cropRectA = cropBoxA.getCropRect(); // get crop rectangle
+    const croppedCanvasA = cropBoxA.cropImage(); // crop image to canvas
+    const src = matFromImageEl(croppedCanvasA); // convert to Mat     
 
-    // Set ORB options from input fields, use defaults if inputs empty
-    const opts = { 
-        nfeatures: Number(nfeatures.value) || 1200,
+    // Set ORB options 
+    opts = { 
+        nfeatures:     Number(nfeatures.value) || 1200,
         edgeThreshold: Number(edgeThreshold.value) || 31,
-        scaleFactor: Number(scaleFactor.value) || 1.2,
-        nlevels: Number(nlevels.value) || 8,
+        scaleFactor:   Number(scaleFactor.value) || 1.2,
+        nlevels:       Number(nlevels.value) || 8,
         fastThreshold: Number(fastThreshold.value) || 20,
-        patchSize: Number(patchSize.value) || 31,
+        patchSize:     Number(patchSize.value) || 31,
     };
     
     // Run ORB detection
@@ -219,24 +208,23 @@ btnDetect.addEventListener('click', () => {
         const fullH = imgA.naturalHeight || imgA.height;
         // Offset keypoints to full image coordinates
         const keypointsFullPx = detectResult.keypoints.map(kp => ({
-            ...kp,                 // copy keypoint
+            ...kp, // copy keypoint
             x: kp.x + cropRectA.x, // offset x by crop rectangle
             y: kp.y + cropRectA.y, // offset y by crop rectangle
         }))
 
         setShared('orbA', keypointsFullPx); // Store in shared state
-        // Start from the module's standard JSON (descriptors + normalized to CROPPED size)
-        const baseJson = mod.exportJSON(detectResult);
-
+        
         // Build JSON
+        const baseJson = mod.exportJSON(detectResult);
         detectJSON = {
             ...baseJson, // copy base JSON
             imageSize: { width: fullW, height: fullH }, // full image size
             // Normalize keypoints to full image size [0 - 1]
             keypoints: keypointsFullPx.map(kp => ({     
-                ...kp,            // copy keypoint 
-                x: kp.x / fullW,  // normalize x to full image width
-                y: kp.y / fullH,  // normalize y to full image height
+                ...kp, // copy keypoint 
+                x: kp.x / fullW, // normalize x to full image width
+                y: kp.y / fullH, // normalize y to full image height
             })),
         };
         // NOTE: descriptors stay exactly as baseJson.descriptors (with data_b64)
@@ -251,10 +239,10 @@ btnDetect.addEventListener('click', () => {
         imgA.hidden = true; // hide original imageA
         
         const fullMat = matFromImageEl(imgA); // Create Mat from full image A
-        mod.drawKeypoints(                    // Draw keypoints on full image
-            fullMat,         // full image Mat
+        mod.drawKeypoints( // Draw keypoints on full image
+            fullMat, // full image Mat
             keypointsFullPx, // keypoints with full image coordinates
-            canvasA          // canvas to draw on
+            canvasA // canvas to draw on
         );
         fullMat.delete(); 
     // Catch any errors during detection
@@ -270,10 +258,9 @@ btnDetect.addEventListener('click', () => {
     }
 });
 
-/*___________________________________________________________________________
-    DOWNLOAD FEATURES.JSON
-    Download detected ORB features as features.json file
-____________________________________________________________________________*/
+/*--------------------------------------------------------------------------- 
+DOWNLOAD BUTTON ACTIONS
+Download detected ORB features as features.json file */
 
 btnDownload.addEventListener('click', () => {
     if (!detectResult) return; // If no detection result, exit
@@ -284,19 +271,18 @@ btnDownload.addEventListener('click', () => {
         { type: 'application/json' }     // MIME type
     );
     const a = document.createElement('a'); // create temporary anchor element
-    a.href = URL.createObjectURL(blob);    // create object URL for Blob
-    a.download = 'features.json';          // set download filename
-    a.click();                             // trigger download
-    URL.revokeObjectURL(a.href);           // revoke object URL
+    a.href = URL.createObjectURL(blob); // create object URL for Blob
+    a.download = 'features.json'; // set download filename
+    a.click(); // trigger download
+    URL.revokeObjectURL(a.href); // revoke object URL
 });
 
-/*___________________________________________________________________________   
-    MATCH FEATURES 
-    - Match features from loaded JSON or detected features on image A to
-      features detected on cropped image B 
-    - Compute homography from matches to generate transform
-    - Apply transform to pose landmarks.
-____________________________________________________________________________*/
+/*--------------------------------------------------------------------------- 
+MATCH BUTTON ACTIONS 
+- Match features from loaded JSON or detected features on image A to
+  features detected on cropped image B 
+- Compute homography from matches to generate transform
+- Apply transform to pose landmarks. */
 
 btnMatch.addEventListener('click', () => {
     if (!cvReady || !imgBReady) return; // If not ready, exit
@@ -308,26 +294,17 @@ btnMatch.addEventListener('click', () => {
     const cv = window.cv; // Get OpenCV.js reference
 
     // Crop image B according to crop box and convert to Mat
-    const cropRectB = cropBoxB.getCropRect();
+    const cropRectB      = cropBoxB.getCropRect();
     const croppedCanvasB = cropBoxB.cropImage();;
-    const target = matFromImageEl(croppedCanvasB);
+    const target         = matFromImageEl(croppedCanvasB);
 
-    // Options for ORB detection on image B 
-    const opts = {
-        nfeatures: Number(nfeatures.value) || 1200,
-        edgeThreshold: Number(edgeThreshold.value) || 31,
-        scaleFactor: Number(scaleFactor.value) || 1.2,
-        nlevels: Number(nlevels.value) || 8,
-        fastThreshold: Number(fastThreshold.value) || 20,
-        patchSize: Number(patchSize.value) || 31
-    };
-    // Detect features on image B
+    // Detect features on image B using same opts as image A
     const detectResultB = mod.detectORB(target, opts);
     // Offset keypoints to match their position on the full image B
     const offsetKeypointsB = detectResultB.keypoints.map(kp => ({
-        ...kp,                  // copy keypoint
-        x: kp.x + cropRectB.x,  // offset x by crop rectangle
-        y: kp.y + cropRectB.y   // offset y by crop rectangle
+        ...kp, // copy keypoint
+        x: kp.x + cropRectB.x, // offset x by crop rectangle
+        y: kp.y + cropRectB.y // offset y by crop rectangle
     }));
 
     // Prepare source features from loaded JSON or detected result
@@ -365,17 +342,17 @@ btnMatch.addEventListener('click', () => {
         
         // Draw matches on full images using offset keypoints
         mod.drawMatches(
-            A,                // full image A
-            B,                // full image B
-            keypointsA,       // use full image A keypoints
+            A, // full image A
+            B, // full image B
+            keypointsA, // use full image A keypoints
             offsetKeypointsB, // use offset keypoints for full image B
-            res,              // match result
-            source.imageSize  // original image A size for correct scaling
+            res, // match result
+            source.imageSize // original image A size for correct scaling
         );
 
         // Display matches on canvas
         imshowCompat(
-            canvasMatches,     // canvas to draw on
+            canvasMatches, // canvas to draw on
             mod._lastCanvasMat // get last drawn matches Mat
         );
 
@@ -392,9 +369,9 @@ btnMatch.addEventListener('click', () => {
         console.log('Image Size:', source.imageSize);
         
         
-        /*___________________________________________________________________________
-        Compute transform from matches */
-        
+        /*-----------------------------------------------------------------------
+        Compute transform from matches */ 
+
         const kpA = getShared('orbA'); // get keypoints A from shared state
         const imgSizeA = getShared('sizeA'); // Original image A size
         let transformMat;
@@ -432,8 +409,8 @@ btnMatch.addEventListener('click', () => {
         }
         console.log('Homography matrix data:', transformMat.data64F || transformMat.data32F);
                  
-        /*___________________________________________________________________________
-        Apply transform to pose landmarks */
+        /*-----------------------------------------------------------------------
+        Apply transform to pose landmarks */ 
        
         const poseTransformer = new PoseTransform(window.cv);
         const poseLandmarksAllFrames = getShared('poseA'); // Array of arrays (frames)
@@ -455,7 +432,7 @@ btnMatch.addEventListener('click', () => {
         console.log('All Transformed Pose Landmarks:', transformedAllFrames);
         setShared('transformedPoseLandmarks', transformedAllFrames);
 
-        /*___________________________________________________________________________
+        /*-----------------------------------------------------------------------
         Draw transformed landmarks on copies of image B and store the images */
 
         const drawnImages = [];
@@ -476,8 +453,7 @@ btnMatch.addEventListener('click', () => {
 
         console.log('Drawn images with landmarks:', drawnImages);
 
-        
-        /*___________________________________________________________________________
+        /*-----------------------------------------------------------------------
         Display images with drawn landmarks */
 
         let landmarkImages = [];
@@ -518,12 +494,10 @@ btnMatch.addEventListener('click', () => {
     }
 });
 
-/*___________________________________________________________________________
-    SHOW ORB DETECTION SECTION
-    
-    Get first frame image from shared state and display it in imgA for
-    ORB detection.
-____________________________________________________________________________*/
+/*-----------------------------------------------------------------------
+SHOW ORB DETECTION SECTION   
+Get first frame image from shared state and display it in imgA for
+ORB detection. */
 
 showOrbBtn.addEventListener('click', async () => {
     console.log('Switching to ORB mode');
@@ -541,11 +515,11 @@ showOrbBtn.addEventListener('click', async () => {
    
     await loadImg(file, imgA); // Load image into imgA
 
-    imgA.hidden         = false; // show imgA
-    imgAReady           = true; // set imgAReady flag
-    detectResult        = null; // reset previous detection result
-    statsA.textContent  = ''; // clear stats A
-    canvasA.hidden      = true; // hide canvas A
+    imgA.hidden        = false; // show imgA
+    imgAReady          = true; // set imgAReady flag
+    detectResult       = null; // reset previous detection result
+    statsA.textContent = ''; // clear stats A
+    canvasA.hidden     = true; // hide canvas A
     
     refreshButtons(); // refresh buttons
 });

@@ -1,8 +1,7 @@
 // main.js
 // Main entry point: choose mode and run pose detection
 import { runPoseDetectionOnFrames } from './pose_module.js';
-import { VideoFrameExtractor } from './video_frame_extractor.js';
-import { setupCropBox } from './setup_crop_box.js';
+import { VideoFrameExtractor } from '../VideoFrameExtractor.js';
 import { loadOpenCV } from '../load_opencv.js';
 import { setShared } from '../shared_state.js';
 import { CropBox } from '../CropBox.js';

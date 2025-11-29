@@ -1,19 +1,29 @@
 // transform_pose.js
 // Module to compute and apply transformation matrices between matched pose landmarks using OpenCV.js
 
-import { getShared } from '../shared_state.js';
-
 export class PoseTransform {
   constructor(cv) {
     this.cv = cv;
   }
-  // srcLandmarks: [{x, y}, ...] from image A (normalized or pixel)
-  // dstLandmarks: [{x, y}, ...] from image B (pixel)
-  // srcSize: {width, height} of image A (needed if srcLandmarks are normalized)
-  // method: 'homography' or 'affine'
+  
+  /*____________________________________________________________________________________
+      COMPUTE TRANSFORM MATRIX
+
+      Transform computation from matched keypoints between two sets of ORB features
+
+      Input:
+        - srcLandmarks: Array of source landmarks [{x, y}, ...] (normalized coordinates)
+        - dstLandmarks: Array of destination landmarks [{x, y}, ...] (pixel coordinates)
+        - srcSize: Size of source image { width, height } for denormalization
+        - method: 'homography' or 'affine' (default: 'homography')
+      Output:
+        - M: transformation matrix (cv.Mat)
+  ___________________________________________________________________________________*/
+  
   computeTransform(srcLandmarks, dstLandmarks, srcSize, method = 'homography') {
     const cv = this.cv;
-    if (srcLandmarks.length !== dstLandmarks.length || srcLandmarks.length < (method === 'homography' ? 4 : 3)) {
+    if (srcLandmarks.length !== dstLandmarks.length 
+      || srcLandmarks.length < (method === 'homography' ? 4 : 3)) {
       throw new Error('Insufficient or mismatched landmark pairs');
     }
 
@@ -47,11 +57,21 @@ export class PoseTransform {
     return M;
   }
 
-  // Transform pose landmarks from image A to image B using the matrix
-  // landmarks: [{x, y}, ...] (normalized or pixel)
-  // srcSize: {width, height} (needed if normalized)
-  // M: transformation matrix (cv.Mat)
-  // method: 'homography' or 'affine'
+  /*____________________________________________________________________________________
+      APPLY TRANSFORM TO LANDMARKS
+
+      Apply transformation matrix to detected pose landmarks from image A to 
+      map them to the coordinate space of image B.
+
+      Input:
+        - landmarks: Array of landmarks [{x, y}, ...] (normalized coordinates)
+        - srcSize: Size of source image { width, height } for denormalization
+        - M: transformation matrix (cv.Mat)
+        - method: 'homography' or 'affine' (default: 'homography')
+      Output:
+        - out: Array of transformed landmarks [{x, y}, ...] (pixel coordinates)
+  ___________________________________________________________________________________*/   
+
   transformLandmarks(landmarks, srcSize, M, method = 'homography') {
     const cv = this.cv;
     const pts = [];
@@ -70,9 +90,9 @@ export class PoseTransform {
     }
 
     // Convert back to JS array
-    const out = [];
+    const transformed = [];
     for (let i = 0; i < landmarks.length; i++) {
-      out.push({
+      transformed.push({
         x: outMat.data32F[i * 2],
         y: outMat.data32F[i * 2 + 1]
       });
@@ -81,6 +101,6 @@ export class PoseTransform {
     ptsMat.delete();
     outMat.delete();
 
-    return out;
+    return transformed;
   }
 }

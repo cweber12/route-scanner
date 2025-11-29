@@ -3,7 +3,7 @@
 export class VideoFrameExtractor {
 
     constructor(videoEl, canvasEl) {
-        this.videoEl = videoEl; // HTMLVideoElement
+        this.videoEl  = videoEl; // HTMLVideoElement
         this.canvasEl = canvasEl; // HTMLCanvasElement
     }
 
@@ -24,14 +24,15 @@ export class VideoFrameExtractor {
                 // When seeked, draw frame to canvas
                 this.videoEl.onseeked = async () => {
                     // Set canvas size to video size
-                    this.canvasEl.width = this.videoEl.videoWidth;              
-                    this.canvasEl.height = this.videoEl.videoHeight;
+                    this.canvasEl.width  = this.videoEl.videoWidth; // set canvas width             
+                    this.canvasEl.height = this.videoEl.videoHeight; // set canvas height
+                    // Draw current video frame to canvas
                     const ctx = this.canvasEl.getContext('2d');
                     ctx.drawImage(
-                        this.videoEl, 
-                        0, 0, 
-                        this.canvasEl.width, 
-                        this.canvasEl.height
+                        this.videoEl, // source image 
+                        0, 0, // source x, y 
+                        this.canvasEl.width, // source width
+                        this.canvasEl.height, // source height
                     );
                     // Get frame data URL
                     const frameDataUrl = this.canvasEl.toDataURL();

@@ -7,26 +7,30 @@ import {
     PoseLandmarker, 
     DrawingUtils
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/vision_bundle.js";
-import { VideoFrameExtractor } from './video_frame_extractor.js';
+// Import other modules from directory
+import { VideoFrameExtractor } from '../VideoFrameExtractor.js';
 import {setShared} from '../shared_state.js'; 
-import { drawLandmarksOnImage } from './draw_landmarks.js'; 
+import { drawLandmarksOnImage } from './draw_landmarks.js'; /*
 
-// Run pose detection on extracted video frames at specified interval
+_____________________________________________________________________________________
+DETECT POSE ON FRAMES
+Extract frames from video, run pose detection with cropping, and store results. 
+_____________________________________________________________________________________*/
 export async function runPoseDetectionOnFrames(
-    videoEl,            // input video element 
-    canvasEl,           // canvas element for drawing results
-    statusEl,           // status element to display messages
-    poseResults,        // output array to hold results
-    intervalSeconds,    // detect every n seconds 
-    frameNav,           // frame navigation controls
-    frameCounter,       // frame counter display
-    cropRect            // cropping rectangle for the video
+    videoEl,         // input video element 
+    canvasEl,        // canvas element for drawing results
+    statusEl,        // status element to display messages
+    poseResults,     // output array to hold results
+    intervalSeconds, // detect every n seconds 
+    frameNav,        // frame navigation controls
+    frameCounter,    // frame counter display
+    cropRect         // cropping rectangle for the video
 ) {
     const vision = await FilesetResolver.forVisionTasks(
         "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
     );
     
-    // Create Pose Landmarker
+    // Create Pose Landmarker instance
     const poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
         // Use lite model from MediaPipe Model Zoo
         baseOptions: {
@@ -39,18 +43,26 @@ export async function runPoseDetectionOnFrames(
     });
 
     // Clear previous results
-    poseResults.length = 0;
-    let crop = cropRect ? { ...cropRect } : null;
-    let frameIdx = 0;
-    let isFirstFrame = true;
+    poseResults.length = 0; // Clear existing results
+    let crop           = cropRect ? { ...cropRect } : null; // Initial crop rectangle (if exists) 
+    let frameIdx       = 0; // Frame index counter
+    let isFirstFrame   = true; // Flag for first frame
 
     // Initialize VideoFrameExtractor
     const extractor = new VideoFrameExtractor(videoEl, canvasEl);
 
     // Extract frames and run pose detection
-    await extractor.extractFrames(intervalSeconds, async (frameUrl, t, frameWidth, frameHeight) => {
+    //------------------------------------------------------------------------------------
+    await extractor.extractFrames(intervalSeconds,
+        async (
+            frameUrl, 
+            t, 
+            frameWidth, 
+            frameHeight
+        ) => {
         const img = new Image();
-        img.src = frameUrl;
+        img.src   = frameUrl;
+        
         await new Promise(resolve => { img.onload = resolve; });
 
         // Set shared image as the full frame (first frame only)
