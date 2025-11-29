@@ -13,45 +13,48 @@ ________________________________________________________________________________
 // Helper to get element by ID
 const el = (id) => document.getElementById(id);
 
-const videoFileInput = el('videoFile');    // Video file input element
-const videoEl = el('video');               // Video element
-const canvasEl = el('overlay');            // Canvas element for overlay
-const poseDetectBtn = el('poseDetectBtn'); // Button to start pose detection
-const downloadBtn = el('downloadBtn');     // Button to download results
-const showOrbBtn = el('showOrb');          // Button to show ORB features
-const statusEl = el('status');             // Status display element
-const intervalInput = el('intervalInput'); // Input for frame interval
-const frameNav = el('frameNav');           // Frame navigation element
-const frameCounter = el('frameCounter');   // Frame counter display
-const cropBoxEl = el('cropBoxPose');       // Crop box element
+const videoFileInput = el('videoFile'); // Video file input element
+const videoEl        = el('video'); // Video element
+const canvasEl       = el('overlay'); // Canvas element for overlay
+const poseDetectBtn  = el('poseDetectBtn'); // Button to start pose detection
+const downloadBtn    = el('downloadBtn');// Button to download results
+const showOrbBtn     = el('showOrb'); // Button to show ORB features
+const statusEl       = el('status'); // Status display element
+const intervalInput  = el('intervalInput'); // Input for frame interval
+const frameNav       = el('frameNav'); // Frame navigation element
+const frameCounter   = el('frameCounter'); // Frame counter display
+const cropBoxEl      = el('cropBoxPose'); // Crop box element
 
 /*___________________________________________________________________________________
                               GLOBAL VARIABLES
 ___________________________________________________________________________________*/
 
 const poseResults = []; // Array to store pose detection results
-// CropBox instance for selecting region of interest
-const cropBox = new CropBox(videoEl, cropBoxEl);
+const cropBox     = new CropBox(videoEl, cropBoxEl); // CropBox instance to select area 
 
 /*___________________________________________________________________________________
-                              SETUP AND EVENT HANDLERS
+                               EVENT HANDLERS
 ___________________________________________________________________________________*/
 
 // Video loaded metadata event
 videoEl.addEventListener('loadedmetadata', () => {
   poseDetectBtn.disabled = false;
 
-  // Adjust canvas pixel buffer size
-  canvasEl.width = videoEl.videoWidth;    // match video width
-  canvasEl.height = videoEl.videoHeight;  // match video height
-  canvasEl.style.position = 'absolute';   // position over video
-  canvasEl.style.left = '0px';            // align left
-  canvasEl.style.top = '0px';             // align top
-  canvasEl.style.pointerEvents = 'none';  // allow clicks to pass through
+  // Canvas size
+  canvasEl.width  = videoEl.videoWidth; // match video width
+  canvasEl.height = videoEl.videoHeight; // match video height
+  
+  // Canvas positioning
+  canvasEl.style.position = 'absolute'; // position over video
+  canvasEl.style.left     = '0px'; // align left
+  canvasEl.style.top      = '0px'; // align top
+
+  // Disable pointer events on canvas to allow interaction with crop box
+  canvasEl.style.pointerEvents = 'none';
 
   // Set canvas and crop box size to match video display size
-  const videoRect = videoEl.getBoundingClientRect(); // get displayed video size
-  canvasEl.style.width = videoRect.width + 'px';    // match displayed video width
+  const videoRect       = videoEl.getBoundingClientRect(); // get displayed video size
+  canvasEl.style.width  = videoRect.width + 'px'; // match displayed video width
   canvasEl.style.height = videoRect.height + 'px';  // match displayed video height
 
   // Show and size crop box
@@ -65,11 +68,12 @@ videoEl.addEventListener('loadedmetadata', () => {
 window.addEventListener('resize', () => {
   // Adjust canvas and crop box size to match video display size
   const videoRect = videoEl.getBoundingClientRect();
+  
   // Set canvas and crop box size to match video display size
-  canvasEl.style.width = videoRect.width + 'px';
-  canvasEl.style.height = videoRect.height + 'px';
-  cropBoxEl.style.width = videoRect.width + 'px';
-  cropBoxEl.style.height = videoRect.height + 'px';
+  canvasEl.style.width   = videoRect.width + 'px'; // displayed video width
+  canvasEl.style.height  = videoRect.height + 'px'; // displayed video height
+  cropBoxEl.style.width  = videoRect.width + 'px'; // displayed video width
+  cropBoxEl.style.height = videoRect.height + 'px'; // displayed video height
 });
 
 // Video file input change event
@@ -82,15 +86,6 @@ videoFileInput.addEventListener('change', (e) => {
   poseDetectBtn.disabled = true; // Disable pose detect button until video is loaded
   statusEl.textContent = "Loading video..."; // Update status
 });
-
-// Normalization function
-function normalizeLandmarks(landmarks, refWidth, refHeight) {
-  return landmarks.map(lm => ({
-    ...lm,
-    x: lm.x / refWidth,
-    y: lm.y / refHeight
-  }));
-}
 
 // Frame detection button click event
 poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
