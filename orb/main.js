@@ -137,7 +137,7 @@ if (window.cvIsReady || (window.cv && (window.cv.Mat || window.cv.getBuildInform
 ____________________________________________________________________________*/   
 
 /*---------------------------------------------------------------------------
-IMAGE B UPLOAD     
+ON IMAGE B UPLOAD     
 Load and preview Image B from file input */
 
 fileB.addEventListener('change', async () => {
@@ -161,7 +161,7 @@ fileB.addEventListener('change', async () => {
 });
 
 /*--------------------------------------------------------------------------- 
-JSON FILE UPLOAD
+ON JSON FILE UPLOAD
 Load and parse features.json file with ORB features from image A */
 
 fileJSON.addEventListener('change', async () => {
@@ -177,7 +177,7 @@ fileJSON.addEventListener('change', async () => {
 });
 
 /*--------------------------------------------------------------------------- 
-DETECT BUTTON ACTIONS
+ON "DETECT" BUTTON CLICK 
 Detect ORB features on cropped Image A */
 
 btnDetect.addEventListener('click', () => {
@@ -191,21 +191,23 @@ btnDetect.addEventListener('click', () => {
 
     // Set ORB options 
     opts = { 
-        nfeatures:     Number(nfeatures.value) || 1200,
+        nfeatures:     Number(nfeatures.value)     || 1200,
         edgeThreshold: Number(edgeThreshold.value) || 31,
-        scaleFactor:   Number(scaleFactor.value) || 1.2,
-        nlevels:       Number(nlevels.value) || 8,
+        scaleFactor:   Number(scaleFactor.value)   || 1.2,
+        nlevels:       Number(nlevels.value)       || 8,
         fastThreshold: Number(fastThreshold.value) || 20,
-        patchSize:     Number(patchSize.value) || 31,
+        patchSize:     Number(patchSize.value)     || 31,
     };
     
     // Run ORB detection
     try {
         // Detect ORB features on cropped image
         detectResult = mod.detectORB(src, opts);
+        
         // Get full image dimensions
-        const fullW = imgA.naturalWidth || imgA.width;
-        const fullH = imgA.naturalHeight || imgA.height;
+        const fullW = imgA.naturalWidth;
+        const fullH = imgA.naturalHeight;
+        
         // Offset keypoints to full image coordinates
         const keypointsFullPx = detectResult.keypoints.map(kp => ({
             ...kp, // copy keypoint
@@ -214,6 +216,8 @@ btnDetect.addEventListener('click', () => {
         }))
 
         setShared('orbA', keypointsFullPx); // Store in shared state
+        console.log('Set shared orbA:', keypointsFullPx);
+        console.log('ImgA width: ', fullW, 'height:', fullH);
         
         // Build JSON
         const baseJson = mod.exportJSON(detectResult);
@@ -259,7 +263,7 @@ btnDetect.addEventListener('click', () => {
 });
 
 /*--------------------------------------------------------------------------- 
-DOWNLOAD BUTTON ACTIONS
+ON "DOWNLOAD" BUTTON CLICK
 Download detected ORB features as features.json file */
 
 btnDownload.addEventListener('click', () => {
@@ -278,7 +282,7 @@ btnDownload.addEventListener('click', () => {
 });
 
 /*--------------------------------------------------------------------------- 
-MATCH BUTTON ACTIONS 
+ON "MATCH" BUTTON CLICK 
 - Match features from loaded JSON or detected features on image A to
   features detected on cropped image B 
 - Compute homography from matches to generate transform
@@ -398,7 +402,6 @@ btnMatch.addEventListener('click', () => {
             transformMat =  poseTransformer.computeTransform(
                 srcMatches,
                 dstMatches,
-                imgSizeA,
                 'homography'
             );
         }

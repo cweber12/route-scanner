@@ -89,11 +89,7 @@ export function imshowCompat(canvas, mat) {
     //   - convert to 4-channel RGBA
     if (mat.type() === window.cv.CV_8UC3) {
         rgba = new window.cv.Mat(); // Temporary Mat for conversion
-        window.cv.cvtColor( // Convert to RGBA
-            mat, // source Mat
-            rgba, // destination Mat
-            window.cv.COLOR_RGB2RGBA // color conversion code
-        );
+        window.cv.cvtColor( mat, rgba, window.cv.COLOR_RGB2RGBA );
     // If the Mat is not already in 4-channel RGBA format (CV_8UC4)
     //   - convert to RGBA
     } else if (mat.type() !== window.cv.CV_8UC4) {
@@ -152,8 +148,8 @@ export function matchesToArray(matches, keypointsA, keypointsB, imageSizeA) {
         const t = keypointsB[m.trainIdx];  // Target keypoint (pixel, from keypointsB)
         // Push filtered source keypoints
         matchedSrc.push({ 
-            x: s.x * imageSizeA.width, // denormalized (pixel) x
-            y: s.y * imageSizeA.height // denormalized (pixel) y
+            x: s.x, // pixel x
+            y: s.y // pixel y
         });
         // Push filtered target keypoints
         matchedDst.push({ 

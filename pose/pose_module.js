@@ -265,15 +265,21 @@ export async function runPoseDetectionOnFrames(
         };
     }
     
-    frameNav.style.display = '';
-    showFrame(currentFrameIdx);
+    /* SETUP FRAME NAVIGATION
+    -----------------------------------------------------------------------------*/
 
+    frameNav.style.display = ''; // show frame navigation
+    showFrame(currentFrameIdx); // show first frame
+
+    // Previous frame button handler
     frameNav.querySelector('#prevFrameBtn').onclick = () => {
         if (currentFrameIdx > 0) showFrame(currentFrameIdx - 1);
     };
+    // Next frame button handler
     frameNav.querySelector('#nextFrameBtn').onclick = () => {
         if (currentFrameIdx < poseResults.length - 1) showFrame(currentFrameIdx + 1);
     };
 
+    // Update status (instructions to user)
     statusEl.textContent = "Finished pose detection, review frames below.";
 }

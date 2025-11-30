@@ -38,13 +38,13 @@ ________________________________________________________________________________
 
 // Video loaded metadata event
 videoEl.addEventListener('loadedmetadata', () => {
-  poseDetectBtn.disabled = false;
-
-  // Canvas size
-  canvasEl.width  = videoEl.videoWidth; // match video width
-  canvasEl.height = videoEl.videoHeight; // match video height
+  poseDetectBtn.disabled  = false; // Enable pose detect button
   
-  // Canvas positioning
+  // Set canvas internal pixel buffer size to match video size
+  canvasEl.width          = videoEl.videoWidth; // match video width
+  canvasEl.height         = videoEl.videoHeight; // match video height
+
+  // Position canvas over video element 
   canvasEl.style.position = 'absolute'; // position over video
   canvasEl.style.left     = '0px'; // align left
   canvasEl.style.top      = '0px'; // align top
@@ -52,19 +52,20 @@ videoEl.addEventListener('loadedmetadata', () => {
   // Disable pointer events on canvas to allow interaction with crop box
   canvasEl.style.pointerEvents = 'none';
 
-  // Set canvas and crop box size to match video display size
+  // Set canvas size to match displayed video size in browser
   const videoRect       = videoEl.getBoundingClientRect(); // get displayed video size
   canvasEl.style.width  = videoRect.width + 'px'; // match displayed video width
   canvasEl.style.height = videoRect.height + 'px';  // match displayed video height
 
-  // Show and size crop box
+  // Show crop box over video after video is loaded
   cropBoxEl.hidden = false;
   
   // Update status
   statusEl.textContent = "Adjust crop box over subject and click \"Detect Pose Landmarks\".";
+
 });
 
-// Window resize event to adjust canvas and crop box size
+// Window resize event
 window.addEventListener('resize', () => {
   // Adjust canvas and crop box size to match video display size
   const videoRect = videoEl.getBoundingClientRect();
@@ -93,6 +94,7 @@ poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
   canvasEl.style.display = ''; // Show canvas
   videoEl.style.display = ''; // Show video
   videoEl.style.position = 'relative'; // Ensure video is positioned for overlay
+  cropBoxEl.hidden = true; 
 
   // Pause video and seek to first frame
   videoEl.pause(); // Pause video playback
@@ -130,6 +132,7 @@ poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
   await loadOpenCV();
   console.log('OpenCV loaded');
 
+
   setShared('poseA', poseResults.map(frame => frame.landmarks));
   console.log('Pose Landmarks:', poseResults.map(frame => frame.landmarks));
   setShared('sizeA', {
@@ -140,7 +143,6 @@ poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
     width: videoEl.videoWidth,
     height: videoEl.videoHeight
   });
-
 });
 
 downloadBtn.addEventListener('click', () => {

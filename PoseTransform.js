@@ -18,7 +18,7 @@ export class PoseTransform {
   Output:
     - M: transformation matrix (cv.Mat) */
 
-  computeTransform(srcLandmarks, dstLandmarks, srcSize, method = 'homography') {
+  computeTransform(srcLandmarks, dstLandmarks, method = 'homography') {
     const cv = this.cv;
     // Validate input landmark arrays
     if (srcLandmarks.length !== dstLandmarks.length 
@@ -29,8 +29,8 @@ export class PoseTransform {
     // Build flat array of source points (image A)
     const srcPts = []; // initialize array
     for (const lm of srcLandmarks) { 
-      srcPts.push(lm.x * srcSize.width); // denormalized x
-      srcPts.push(lm.y * srcSize.height); // denormalized y
+      srcPts.push(lm.x); 
+      srcPts.push(lm.y); 
     }
     
     // Build flat array of destination points (image B)
@@ -78,8 +78,8 @@ export class PoseTransform {
     const pts = [];
 
     for (const lm of landmarks) {
-      pts.push(lm.x * srcSize.width);
-      pts.push(lm.y * srcSize.height);
+      pts.push(lm.x);
+      pts.push(lm.y);
     }
     const ptsMat = cv.matFromArray(landmarks.length, 1, cv.CV_32FC2, pts);
     const outMat = new cv.Mat();
