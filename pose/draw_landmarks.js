@@ -10,8 +10,8 @@ export function drawLandmarksOnImage(canvasEl, img, landmarks, color = 'lime') {
     // Return if no landmarks
     if (!landmarks || landmarks.length === 0) return;
     
-    canvasEl.width  = img.width; // set canvas to image width
-    canvasEl.height = img.height; // set canvas to image height
+    canvasEl.width  = img.naturalWidth; // set canvas to image width
+    canvasEl.height = img.naturalHeight; // set canvas to image height
     const ctx       = canvasEl.getContext('2d'); // get 2D context
 
     // Clear canvas before drawing
@@ -30,6 +30,7 @@ export function drawLandmarksOnImage(canvasEl, img, landmarks, color = 'lime') {
 
     // Define normalized landmarks for drawing connections
     const drawingUtils = new DrawingUtils(ctx);
+    
     const normalizedLandmarks = landmarks.map(lm => ({
         x: lm.x / canvasEl.width, // normalize x coordinate
         y: lm.y / canvasEl.height, // normalize y coordinate

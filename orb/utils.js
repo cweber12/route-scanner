@@ -1,10 +1,6 @@
 // image_utils.js
 // Utilities for loading images and converting to cv.Mat 
 
-//Internal temporary canvas for image to Mat conversion
-const __tmpCanvas = document.createElement('canvas');
-const __tmpCtx = __tmpCanvas.getContext('2d', { willReadFrequently: true }); /*
-
 /*____________________________________________________________________________
 UTILITY FUNCTIONS 
 
@@ -13,6 +9,10 @@ matFromImageEl: Convert an HTMLImageElement to cv.Mat (CV_8UC4)
 imshowCompat: Display a cv.Mat on a canvas, compatible with builds without cv.imshow
 matchesToArray: Convert matches and keypoints to arrays of matched points
 ____________________________________________________________________________*/
+
+//Internal temporary canvas for image to Mat conversion
+const __tmpCanvas = document.createElement('canvas');
+const __tmpCtx = __tmpCanvas.getContext('2d', { willReadFrequently: true }); /*
 
 /* LOAD IMAGE
 ----------------------------------------------------------------------------
@@ -55,9 +55,12 @@ export function matFromImageEl(imgEl) {
     // Get image dimensions, use natural size if available
     const w = imgEl.naturalWidth || imgEl.width;
     const h = imgEl.naturalHeight || imgEl.height;
-    // Draw the <img> to an offscreen canvas and grab RGBA bytes
-    __tmpCanvas.width = w; // set canvas to image width
+    
+    // Define temporary canvas size
+    __tmpCanvas.width  = w; // set canvas to natural image width
     __tmpCanvas.height = h; // set canvas to image height
+    
+    // Draw image to temporary canvas and get pixel data
     __tmpCtx.clearRect(0, 0, w, h); // clear canvas
     __tmpCtx.drawImage(imgEl, 0, 0, w, h); // draw image to canvas
     const imageData = __tmpCtx.getImageData(0, 0, w, h); // get RGBA pixel data
@@ -78,20 +81,19 @@ Input:
 - mat: cv.Mat to display (can be CV_8UC3 or CV_8UC4) */
 
 export function imshowCompat(canvas, mat) {    
-    // if the build supports imshow
-    if (window.cv.imshow) {             
+    if (window.cv.imshow) { // if the build supports imshow          
         window.cv.imshow(canvas, mat);  // use it directly
         return; // done
     }    
-    // placeholder for RGBA Mat
-    let rgba = mat; 
-    // If the Mat is in 3-channel RGB format (CV_8UC3)
-    //   - convert to 4-channel RGBA
+    
+    let rgba = mat; // Mat in RGBA format
+
+    // 3 channel RGB -> 4 channel RGBA 
     if (mat.type() === window.cv.CV_8UC3) {
         rgba = new window.cv.Mat(); // Temporary Mat for conversion
         window.cv.cvtColor( mat, rgba, window.cv.COLOR_RGB2RGBA );
-    // If the Mat is not already in 4-channel RGBA format (CV_8UC4)
-    //   - convert to RGBA
+    
+    // Other types -> 4 channel RGBA
     } else if (mat.type() !== window.cv.CV_8UC4) {
         const tmp = new window.cv.Mat(); // Temporary Mat for conversion
         window.cv.cvtColor( // Convert to RGBA
@@ -100,23 +102,26 @@ export function imshowCompat(canvas, mat) {
             window.cv.COLOR_RGBA2RGBA // color conversion code
         ); 
         rgba = tmp; // Use converted Mat                                         
-    // If the Mat is already in RGBA format
+    
+    // Already RGBA -> clone and use directly
     } else {
-        rgba = mat.clone(); // clone to avoid modifying original 
+        rgba = mat.clone();  
     }
+    
     // Create ImageData from the RGBA Mat data
     const imageData = new ImageData(
         new Uint8ClampedArray(rgba.data), // pixel data
         rgba.cols, // width 
         rgba.rows // height
     );
-    // Resize the canvas and put the ImageData onto it
+    
+    // Resize the canvas 
     canvas.width = rgba.cols; // set canvas width
     canvas.height = rgba.rows; // set canvas height
+    
     // Draw ImageData to canvas
     canvas.getContext('2d').putImageData(imageData, 0, 0); 
-    // Clean up temporary Mat if created
-    rgba.delete(); 
+    rgba.delete(); // clean up temporary Mat
 }
 
 /* MATCHES TO ARRAY
@@ -124,7 +129,7 @@ export function imshowCompat(canvas, mat) {
 Convert matches and keypoints to arrays of matched points in pixel coordinates.
 
 Input:
-- matches: array of match objects with queryIdx and trainIdx
+- matches:    array of match objects with queryIdx and trainIdx
 - keypointsA: array of keypoints from image A (normalized coordinates)
 - keypointsB: array of keypoints from image B (pixel coordinates)
 - imageSizeA: size of image A {width, height} for denormalization
@@ -144,13 +149,15 @@ export function matchesToArray(matches, keypointsA, keypointsB, imageSizeA) {
     const matchedDst = []; // from image B
     // Loop over matches and extract corresponding matched keypoints from both sets
     for (const m of matches) {
-        const s = keypointsA[m.queryIdx];  // Source keypoint (normalized, from keypointsA)
-        const t = keypointsB[m.trainIdx];  // Target keypoint (pixel, from keypointsB)
+        const s = keypointsA[m.queryIdx]; // Source keypoint (normalized, from keypointsA)
+        const t = keypointsB[m.trainIdx]; // Target keypoint (pixel, from keypointsB)
+        
         // Push filtered source keypoints
         matchedSrc.push({ 
             x: s.x, // pixel x
             y: s.y // pixel y
         });
+        
         // Push filtered target keypoints
         matchedDst.push({ 
             x: t.x, // pixel x

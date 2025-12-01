@@ -90,6 +90,17 @@ let detectResult = null; // Detection result state
 let loadedJSON   = null; // Loaded JSON state
 let detectJSON   = null; // Detected features JSON state
 
+/*------------------------------------------------------------------------------------
+VERIFY OPENCV.JS IS READY
+Make sure OpenCV.js is ready before initializing ORBModule and loading 
+event handlers */
+
+if (window.cvIsReady || (window.cv && (window.cv.Mat || window.cv.getBuildInformation))) {
+    initOrbModule();
+} else {
+    document.addEventListener('cv-ready', initOrbModule, { once: true });
+}
+
 /*___________________________________________________________________________________
                                  HELPERS 
   __________________________________________________________________________________*/ 
@@ -101,7 +112,7 @@ Initialize ORBModule when OpenCV.js is ready */
 function initOrbModule() {   
     // Create ORBModule instance
     try {
-        mod     = new ORBModule(window.cv); // create ORBModule instance
+        mod = new ORBModule(window.cv); // create ORBModule instance
         cvReady = true; // set cvReady flag         
     } catch (e) {
         console.error('cv init error', e);  
@@ -119,17 +130,6 @@ function refreshButtons() {
     btnDetect.disabled   = !(cvReady && imgAReady); 
     btnDownload.disabled = !(detectResult && detectResult.descriptors); 
     btnMatch.disabled    = !(cvReady && imgBReady && haveFeatures()); 
-}
-
-/*------------------------------------------------------------------------------------
-VERIFY OPENCV.JS IS READY
-Make sure OpenCV.js is ready before initializing ORBModule and loading 
-event handlers */
-
-if (window.cvIsReady || (window.cv && (window.cv.Mat || window.cv.getBuildInformation))) {
-    initOrbModule();
-} else {
-    document.addEventListener('cv-ready', initOrbModule, { once: true });
 }
 
 /*___________________________________________________________________________
@@ -233,16 +233,18 @@ btnDetect.addEventListener('click', () => {
         };
         // NOTE: descriptors stay exactly as baseJson.descriptors (with data_b64)
         
-        // Update stats display
+        // Update detection stats display
         statsA.textContent =
             `A: ${detectResult.width}x${detectResult.height}\n` +
             `keypoints: ${detectResult.keypoints.length}\n` +
             `descriptors: ${detectResult.descriptors?.rows ?? 0} x ${detectResult.descriptors?.cols ?? 0}`;
         
         canvasA.hidden = false; // show canvasA (image with keypoints)
-        imgA.hidden = true; // hide original imageA
+        imgA.hidden    = true; // hide original imageA
         
         const fullMat = matFromImageEl(imgA); // Create Mat from full image A
+        
+        // Draw keypoints on full image A
         mod.drawKeypoints( // Draw keypoints on full image
             fullMat, // full image Mat
             keypointsFullPx, // keypoints with full image coordinates
@@ -420,16 +422,16 @@ btnMatch.addEventListener('click', () => {
         const transformedAllFrames = [];
 
         for (let i = 0; i < poseLandmarksAllFrames.length; i++) {
-        const frameLandmarks = poseLandmarksAllFrames[i];
-        if (!frameLandmarks || frameLandmarks.length === 0) continue; // skip empty frames
+            const frameLandmarks = poseLandmarksAllFrames[i];
+            if (!frameLandmarks || frameLandmarks.length === 0) continue; // skip empty frames
 
-        const transformed = poseTransformer.transformLandmarks(
-            frameLandmarks,
-            imgSizeA,
-            transformMat,
-            'homography'
-        );
-        transformedAllFrames.push(transformed);
+            const transformed = poseTransformer.transformLandmarks(
+                frameLandmarks,
+                imgSizeA,
+                transformMat,
+                'homography'
+            );
+            transformedAllFrames.push(transformed);
         }
 
         console.log('All Transformed Pose Landmarks:', transformedAllFrames);
