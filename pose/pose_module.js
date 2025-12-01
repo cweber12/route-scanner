@@ -242,7 +242,8 @@ export async function runPoseDetectionOnFrames(
                 // Draw each landmark as a circle
                 frameData.landmarks.forEach(lm => {
                     ctx.beginPath();
-                    ctx.arc(lm.x * scaleX, lm.y * scaleY, 4, 0, 2 * Math.PI);
+                    const avgScale = (scaleX + scaleY) / 2;
+                    ctx.arc(lm.x * scaleX, lm.y * scaleY, 4 * avgScale, 0, 2 * Math.PI);
                     ctx.fillStyle = 'lime';
                     ctx.fill();
                 });

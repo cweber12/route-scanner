@@ -36,13 +36,16 @@ const cropBox     = new CropBox(videoEl, cropBoxEl); // CropBox instance to sele
                                EVENT HANDLERS
 ___________________________________________________________________________________*/
 
-// Video loaded metadata event
+/* ON VIDEO METADATA LOADED
+-----------------------------------------------------------------------------------
+Set up canvas and crop box when video metadata is loaded (video uploaded)
+-----------------------------------------------------------------------------------*/
 videoEl.addEventListener('loadedmetadata', () => {
-  poseDetectBtn.disabled  = false; // Enable pose detect button
+  poseDetectBtn.disabled = false; // Enable pose detect button
   
   // Set canvas internal pixel buffer size to match video size
-  canvasEl.width          = videoEl.videoWidth; // match video width
-  canvasEl.height         = videoEl.videoHeight; // match video height
+  canvasEl.width  = videoEl.videoWidth; // match video width
+  canvasEl.height = videoEl.videoHeight; // match video height
 
   // Position canvas over video element 
   canvasEl.style.position = 'absolute'; // position over video
@@ -57,15 +60,17 @@ videoEl.addEventListener('loadedmetadata', () => {
   canvasEl.style.width  = videoRect.width + 'px'; // match displayed video width
   canvasEl.style.height = videoRect.height + 'px';  // match displayed video height
 
-  // Show crop box over video after video is loaded
-  cropBoxEl.hidden = false;
+  cropBoxEl.hidden = false; // Show crop box
   
   // Update status
   statusEl.textContent = "Adjust crop box over subject and click \"Detect Pose Landmarks\".";
 
 });
 
-// Window resize event
+/* ON WINDOW RESIZE
+-----------------------------------------------------------------------------------
+Resize canvas and crop box to match video display size
+-----------------------------------------------------------------------------------*/
 window.addEventListener('resize', () => {
   // Adjust canvas and crop box size to match video display size
   const videoRect = videoEl.getBoundingClientRect();
@@ -88,14 +93,19 @@ videoFileInput.addEventListener('change', (e) => {
   statusEl.textContent = "Loading video..."; // Update status
 });
 
-// Frame detection button click event
+/* ON POSE DETECT BUTTON CLICK
+-----------------------------------------------------------------------------------
+Run pose detection on video frames when button is clicked
+-----------------------------------------------------------------------------------*/
 poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
   frameNav.style.display = 'none'; // Hide frame navigation
   canvasEl.style.display = ''; // Show canvas
-  videoEl.style.display = ''; // Show video
+  videoEl.style.display  = ''; // Show video
   videoEl.style.position = 'relative'; // Ensure video is positioned for overlay
-  cropBoxEl.hidden = true; 
 
+  cropBoxEl.style.zIndex = -1; // Set crop box behind canvas
+  // NOTE: Crop box must stay visible to get correct coordinates
+  
   // Pause video and seek to first frame
   videoEl.pause(); // Pause video playback
   videoEl.currentTime = 0; // Seek to first frame
@@ -127,6 +137,8 @@ poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
     cropRect
   );
 
+  cropBoxEl.style.zIndex = 1; // Restore crop box z-index
+  cropBoxEl.hidden = true; // Hide crop box after detection
   showOrbBtn.disabled = poseResults.length === 0;
   downloadBtn.disabled = poseResults.length === 0;
   await loadOpenCV();
@@ -145,6 +157,10 @@ poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
   });
 });
 
+/* ON DOWNLOAD BUTTON CLICK
+-----------------------------------------------------------------------------------
+Download collected pose landmarks as JSON file
+-----------------------------------------------------------------------------------*/
 downloadBtn.addEventListener('click', () => {
   if (poseResults.length === 0) {
     alert("No pose data collected yet.");

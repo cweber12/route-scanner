@@ -76,6 +76,8 @@ const cropBoxB = new CropBox(imgB, el('cropBoxOrbB'));
 // Check if features available (from detection or loaded JSON)
 const haveFeatures = () => Boolean(loadedJSON || detectResult);
 
+const cv = window.cv; // attach OpenCV.js API
+
 let mod; // ORBModule instance
 let opts; // ORB options
 
@@ -181,8 +183,7 @@ ON "DETECT" BUTTON CLICK
 Detect ORB features on cropped Image A */
 
 btnDetect.addEventListener('click', () => {
-    if (!cvReady || !imgAReady) return; // If not ready, exit
-    const cv = window.cv; // Get OpenCV.js reference 
+    if (!cvReady || !imgAReady) return; // If not ready, exit 
     
     // Crop image A according to crop box and convert to Mat
     const cropRectA = cropBoxA.getCropRect(); // get crop rectangle
@@ -296,8 +297,6 @@ btnMatch.addEventListener('click', () => {
         alert('Load features.json or run Detect on Image A first.');
         return;
     }
-    
-    const cv = window.cv; // Get OpenCV.js reference
 
     // Crop image B according to crop box and convert to Mat
     const cropRectB      = cropBoxB.getCropRect();
@@ -448,7 +447,7 @@ btnMatch.addEventListener('click', () => {
             // Create a new canvas for each frame
             const tempCanvas = document.createElement('canvas');
             // Draw landmarks on a copy of image B
-            drawLandmarksOnImage(tempCanvas, imgB, landmarks, 'red');
+            drawLandmarksOnImage(tempCanvas, imgB, landmarks, 'lime');
             // Store the image as a data URL
             drawnImages.push(tempCanvas.toDataURL());
         }

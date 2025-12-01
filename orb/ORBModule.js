@@ -9,7 +9,7 @@ export class ORBModule {
     this._lastCanvasMat = null; // cached canvas Mat for drawing
   }
 
-  /*_________________________________________________________________________
+  /*_______________________________________________________________________________
 
   Public methods:
     - detectORB: detect ORB features in an image
@@ -25,12 +25,21 @@ export class ORBModule {
     - _u8ToB64: convert Uint8Array to base64 string
     - _b64ToU8: convert base64 string to Uint8Array
     - _releaseLastCanvasMat: release last cached canvas Mat
-  __________________________________________________________________________*/
+  _______________________________________________________________________________*/
 
   
-  /*-------------------------------------------------------------------------
-  Detect ORB features in a cv.Mat image */
+  /*_______________________________________________________________________________
+                              PUBLIC METHODS
+  _______________________________________________________________________________*/
   
+  /* DETECT ORB FEATURES IN IMAGE
+  ---------------------------------------------------------------------------------
+  Input:
+  - srcRGBA: source image as cv.Mat in RGBA format
+  - opts: optional parameters for ORB detection
+  Output:
+  - detectResult: object with keypoints, descriptors, width, height
+  ---------------------------------------------------------------------------------*/
   detectORB(srcRGBA, opts = {}) {
     const cv = this.cv; 
     
@@ -41,10 +50,10 @@ export class ORBModule {
       nlevels       = 8, // Number of pyramid levels
       edgeThreshold = 31, // Size of the border where features are not detected
       firstLevel    = 0, // Level of pyramid to put source image to
-      WTA_K         = 2, // Number of points that produce each element of ORB descriptor
+      WTA_K         = 2, // Number of pts that produce each element of descriptor
       scoreType     = cv.ORB_HARRIS_SCORE, // Score type (HARRIS or FAST)
-      patchSize     = 31, // Size of the patch used by the oriented BRIEF descriptor
-      fastThreshold = 20 // FAST threshold
+      patchSize     = 31, // Size of the patch used by the rotated BRIEF descriptor
+      fastThreshold = 20 // Threshold for FAST corner detector
     } = opts; 
 
     // 1. Create new Mats and ORB detector
@@ -95,10 +104,16 @@ export class ORBModule {
       orb.delete(); kpVec.delete(); des.delete(); gray.delete();
     }
   }
+  
+  /* EXPORT JSON WITH SOURCE IMAGE FEATURES
+  ---------------------------------------------------------------------------------
+  Export detected features to JSON format and download as features.json
 
-  /*-------------------------------------------------------------------------
-  Export a detect result to JSON (descriptors are base64) */
-
+  Input:
+  - detectResult: result from detectORB
+  Output:
+  - json: JSON object with features
+  ---------------------------------------------------------------------------------*/
   exportJSON(detectResult) {  
     // 1. Get results from detectORB
     const { keypoints, descriptors, width, height } = detectResult;
@@ -125,9 +140,16 @@ export class ORBModule {
 
     return json;
   }
-  /*-------------------------------------------------------------------------
-  Import features from JSON */
+  
+  /* IMPORT JSON WITH SOURCE IMAGE FEATURES
+  ---------------------------------------------------------------------------------
+  Import features from JSON features.json
 
+  Input:
+  - obj: parsed JSON object
+  Output:
+  - detectResult: reconstructed detect result
+  ---------------------------------------------------------------------------------*/
   importJSON(obj) {  
     // 1. Validate input JSON
     if (!obj || obj.type !== "ORB") throw new Error("Invalid features JSON");
@@ -147,9 +169,18 @@ export class ORBModule {
       } : null // null if no descriptors
     };
   }
-  /*-------------------------------------------------------------------------
-  Match features to a target cv.Mat image */
   
+  /* MATCH KEYPOINTS FROM SOURCE <-> TARGET IMAGE
+  ---------------------------------------------------------------------------------
+  Match ORB features from source JSON to target image Mat using KNN + ratio test
+
+  Input:
+    - sourceJson: detected features from source image 
+    - targetMat: cv.Mat of target image (RGBA)
+    - opts: matching options { ratio, ransacReprojThreshold }
+  Output:
+    - { matches, homography, numInliers, inlierMask } 
+  ---------------------------------------------------------------------------------*/
   matchToTarget(sourceJson, targetMat, opts = {}) {  
     // 1. Access OpenCV.js
     const cv = this.cv; 
@@ -314,13 +345,15 @@ export class ORBModule {
     };
   }
 
-  /*-------------------------------------------------------------------------
-  Draw keypoints on a canvas
+  /* DRAW DETECTED KEYPOINTS ON IMAGE
+  ---------------------------------------------------------------------------------
+  Display detected keypoints over the image on a canvas
+  
   Inputs:  
   - imgRGBA: source image in RGBA format (cv.Mat)
   - keypoints: array of keypoints with x,y coordinates
-  - outCanvas: HTML canvas element to draw on */
-
+  - outCanvas: HTML canvas element to draw on 
+  ---------------------------------------------------------------------------------*/
   drawKeypoints(imgRGBA, keypoints, outCanvas) {
     const cv = this.cv; // OpenCV.js
     
@@ -357,16 +390,18 @@ export class ORBModule {
   }
 
   
-  /*-------------------------------------------------------------------------
-  Draw matches between two images
+  /* DRAW MATCHES BETWEEN IMAGE A <-> IMAGE B
+  ---------------------------------------------------------------------------------
+  Display both images side by side with matched keypoints and lines connecting them
+  
   Inputs:
   - imgA: first image (cv.Mat)
   - imgB: second image (cv.Mat)
   - keypointsA: keypoints from image A (array)
   - keypointsB: keypoints from image B (array)
   - matchRes: result from matchToTarget (matches, inlierMask)
-  - originalSizeA: original size of image A {width, height} for denormalization */
-
+  - originalSizeA: original size of image A {width, height} for denormalization 
+  ---------------------------------------------------------------------------------*/
   drawMatches(imgA, imgB, keypointsA, keypointsB, matchRes, originalSizeA) {   
     const cv   = this.cv; // OpenCV.js
     const outH = Math.max(imgA.rows, imgB.rows); // Output height
@@ -437,9 +472,8 @@ export class ORBModule {
         Math.round(p2.y) // y coordinate
       );
 
-      /* ---------------------------------------------------------------------
-      
-      DIAGRMA FOR OUTPUT IMAGE LAYOUT: 
+      /* DIAGRAM FOR OUTPUT IMAGE LAYOUT
+      ------------------------------------------------------------------------------ 
 
             {   imgA.cols       }{         imgB.cols      }
       (0,0) -----------------------------------------------
@@ -451,7 +485,7 @@ export class ORBModule {
     space ->////////////////////---------------------------
             {                   outW                      }
 
-      ---------------------------------------------------------------------- */
+      ------------------------------------------------------------------------------ */
 
       // Draw line between matched keypoints
       cv.line(this._lastCanvasMat, a, b, color, 1, cv.LINE_AA);
@@ -461,9 +495,19 @@ export class ORBModule {
     }
   }
 
-  /*-------------------------------------------------------------------------
-  Internal: serialize KeyPointVector to JS array */
+  /*________________________________________________________________________________
+                           INTERNAL METHODS
+  _________________________________________________________________________________*/
 
+  /* SERIALIZE KEYPOINTVECTOR TO JS ARRAY
+  ---------------------------------------------------------------------------------
+  Convert OpenCV.js KeyPointVector to JS array of keypoint objects
+
+  Input:
+  - kpVec: OpenCV.js KeyPointVector
+  Output:
+  - out: Array of keypoints [{x, y, size, angle, response, octave, class_id}, ...]    
+  ---------------------------------------------------------------------------------*/
   _serializeKeypoints(kpVec) {
     const n = kpVec.size(); // number of keypoints
     const out = [];         // output array  
@@ -483,9 +527,15 @@ export class ORBModule {
     return out; // return array of keypoints
   }
 
-  /*-------------------------------------------------------------------------
-  Internal: serialize descriptor Mat to JS object */
-
+  /* SERIALIZE DESCRIPTORS MAT TO JS OBJECT
+  ---------------------------------------------------------------------------------
+  Convert OpenCV.js descriptor Mat to JS object with rows, cols, data (Uint8Array)
+  
+  Input:
+  - des: OpenCV.js Mat of descriptors
+  Output:
+  - out: Object { rows, cols, data (Uint8Array) }    
+  ---------------------------------------------------------------------------------*/
   _serializeDescriptors(des) {
     // Check for empty descriptors
     if (!des || des.rows===0 || des.cols===0) return null;
@@ -497,9 +547,15 @@ export class ORBModule {
     };
   }
   
-  /*-------------------------------------------------------------------------
-  Internal: Uint8Array to base64 string */
+  /* UINT8ARRAY TO BASE64 STRING
+  ----------------------------------------------------------------------------------
+  Convert Uint8Array to base64 string for JSON serialization
 
+  Input:
+    - u8: Uint8Array
+  Output:
+    - b64: base64 encoded string 
+  ----------------------------------------------------------------------------------*/
   _u8ToB64(u8) {
     
     let binary  = ''; // binary string
@@ -514,9 +570,15 @@ export class ORBModule {
     return btoa(binary);
   }
 
-  /*-------------------------------------------------------------------------
-  Internal: base64 to Uint8Array */
+  /* BASE64 STRING TO UINT8ARRAY
+  ----------------------------------------------------------------------------------
+  Convert base64 string back to Uint8Array
 
+  Input:
+  - b64: base64 encoded string
+  Output:
+  - u8: Uint8Array 
+  ----------------------------------------------------------------------------------*/
   _b64ToU8(b64) {
     const bin = atob(b64); // decode base64 to binary string
     const u8  = new Uint8Array(bin.length); // create Uint8Array
@@ -530,9 +592,10 @@ export class ORBModule {
     return u8;
   }
 
-  /*-------------------------------------------------------------------------
-  Internal: release last cached canvas Mat */
-
+  /* RELEASE LAST CACHED CANVAS MAT
+  ----------------------------------------------------------------------------------
+  Release the last cached canvas Mat used for drawing matches 
+  ----------------------------------------------------------------------------------*/
   _releaseLastCanvasMat(){
     // If there is a cached Mat
     if (this._lastCanvasMat) { 
