@@ -225,8 +225,8 @@ export async function runPoseDetectionOnFrames(
             // Draw the crop box rectangle in display space
             if (frameData.cropRect) {
                 ctx.save(); // save context state
-                ctx.strokeStyle = 'red'; // crop box color
-                ctx.lineWidth   = 2; // crop box line width
+                ctx.strokeStyle = 'black'; // crop box color
+                ctx.lineWidth   = 1; // crop box line width
                 // Draw rectangle
                 ctx.strokeRect(
                     frameData.cropRect.left * scaleX, // x position
@@ -282,5 +282,7 @@ export async function runPoseDetectionOnFrames(
     };
 
     // Update status (instructions to user)
-    statusEl.textContent = "Finished pose detection, review frames below.";
+    statusEl.textContent = 
+        `Finished pose detection. Review processed frames, optionally download results, 
+        and select \"Detect ORB\" to continue.`;
 }

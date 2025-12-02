@@ -24,6 +24,7 @@ const intervalInput  = el('intervalInput'); // Input for frame interval
 const frameNav       = el('frameNav'); // Frame navigation element
 const frameCounter   = el('frameCounter'); // Frame counter display
 const cropBoxEl      = el('cropBoxPose'); // Crop box element
+const showImgA       = el('showImgA'); // Show Image A section
 
 /*___________________________________________________________________________________
                               GLOBAL VARIABLES
@@ -42,7 +43,7 @@ Set up canvas and crop box when video metadata is loaded (video uploaded)
 -----------------------------------------------------------------------------------*/
 videoEl.addEventListener('loadedmetadata', () => {
   poseDetectBtn.disabled = false; // Enable pose detect button
-  
+  poseSection.hidden = false; // Show pose section
   // Set canvas internal pixel buffer size to match video size
   canvasEl.width  = videoEl.videoWidth; // match video width
   canvasEl.height = videoEl.videoHeight; // match video height
@@ -61,9 +62,10 @@ videoEl.addEventListener('loadedmetadata', () => {
   canvasEl.style.height = videoRect.height + 'px';  // match displayed video height
 
   cropBoxEl.hidden = false; // Show crop box
+
   
   // Update status
-  statusEl.textContent = "Adjust crop box over subject and click \"Detect Pose Landmarks\".";
+  statusEl.textContent = "Set detection interval, adjust crop box over subject, and click \"Detect Pose Landmarks\".";
 
 });
 

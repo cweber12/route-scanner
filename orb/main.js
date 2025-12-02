@@ -55,15 +55,26 @@ const fastThreshold = el('fastThreshold'); // FAST threshold for ORB
 const patchSize     = el('patchSize'); // Patch size for ORB
 
 // Elements for landmark navigation
-const landmarkNav   = el('landmarkNav'); // Navigation container
-const prevBtn       = el('prevBtn'); // Previous frame button
-const nextBtn       = el('nextBtn'); // Next frame button
-const frameCounter  = el('frameCounter'); // Frame counter display
-const frameImg      = el('frameImg'); // Frame image display
+const landmarkNav  = el('landmarkNav'); // Navigation container
+const prevBtn      = el('prevBtn'); // Previous frame button
+const nextBtn      = el('nextBtn'); // Next frame button
+const frameCounter = el('frameCounter'); // Frame counter display
+const frameImg     = el('frameImg'); // Frame image display
 
 // Section elements for showing/hiding sections
-const detectOrb    = el('detectOrb'); // Detect ORB section
-const matchSection = el('matchSection'); // Match features section 
+const poseSection  = el('poseSection'); // Pose section
+const poseControls = el('poseControls'); // Pose controls section
+const orbSection   = el('orbSection'); // ORB section
+const matchSection = el('matchSection'); // Match features section
+const matchControls= el('matchControls'); // Match controls section 
+const showMatch    = el('showMatch'); // Show match section
+
+// Crop box elements
+const cropBoxEl    = el('cropBoxOrbA'); // Crop box for Image A
+const cropBoxElB   = el('cropBoxOrbB'); // Crop box for Image B
+
+// Status display element
+const statusEl     = el('status-2');
 
 /*___________________________________________________________________________________
                             GLOBAL VARIABLES
@@ -149,7 +160,8 @@ fileB.addEventListener('change', async () => {
         await loadImg(f, imgB); // load image into imgB   
         imgB.hidden               = false; // show imgB
         cropBoxB.cropBoxEl.hidden = false; // show crop box B
-        matchSection.hidden       = false; // show match section        
+        matchSection.hidden       = false; // show match section
+        showMatch.hidden          = false; // show match section details
         imgBReady                 = true; // set imgBReady flag
         statsB.textContent        = ''; // clear prev stats B
         canvasMatches.hidden      = true; // hide prev matches canvas
@@ -241,8 +253,10 @@ btnDetect.addEventListener('click', () => {
             `descriptors: ${detectResult.descriptors?.rows ?? 0} x ${detectResult.descriptors?.cols ?? 0}`;
         
         canvasA.hidden = false; // show canvasA (image with keypoints)
-        imgA.hidden    = true; // hide original imageA
-        
+        matchSection.hidden = false; // show match section
+        matchControls.hidden = false; // show match controls
+        imgA.style.display = 'none'; // hide original imageA
+        cropBoxEl.hidden = true; // hide crop box A
         const fullMat = matFromImageEl(imgA); // Create Mat from full image A
         
         // Draw keypoints on full image A
@@ -260,8 +274,9 @@ btnDetect.addEventListener('click', () => {
         detectJSON = null;
     // Cleanup
     } finally { 
-        src.delete();     // release Mat
+        src.delete(); // release Mat
         refreshButtons(); // refresh buttons
+        statusEl.textContent = 'Detection complete. Optionally download features.json or proceed to Match.';
     }
 });
 
@@ -494,6 +509,7 @@ btnMatch.addEventListener('click', () => {
     // Cleanup
     } finally {
         target.delete();
+        showMatch.hidden = true; 
         refreshButtons();
     }
 });
@@ -519,7 +535,7 @@ showOrbBtn.addEventListener('click', async () => {
    
     await loadImg(file, imgA); // Load image into imgA
 
-    imgA.hidden        = false; // show imgA
+    orbSection.hidden  = false; // show ORB section
     imgAReady          = true; // set imgAReady flag
     detectResult       = null; // reset previous detection result
     statsA.textContent = ''; // clear stats A
