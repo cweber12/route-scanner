@@ -3,75 +3,83 @@
     <head>
         <meta charset="UTF-8" />
         <title>Route Scanner</title>
-        <link rel="stylesheet" href="pose/styles.css" />
+        <link rel="stylesheet" href="./styles.css" />
     </head>
     
     <body>
-        <div class="main-wrapper">
-            
-            <div id="poseControls" style="width: 100%;"> 
-                <div class="left-aligned column header" style="width: 100%"> 
-                    <h2>Detect Pose Landmarks</h2>    
-                    <div id="status" style="margin-bottom: 0px;">Load a video to get started.</div>
+        <!-- Main wrapper for all content -->
+        <div class="main-wrapper"> 
+
+            <!---------------------------------------------------------------------------------->   
+            <!--                        POSE DETECTION SECTION                                -->
+            <!---------------------------------------------------------------------------------->      
+            <!-- Header, video file input + status/instructions -------------------------------->           
+            <div id="poseControls"> 
+                <div class="left-aligned column header"> 
+                    <h2 style="margin-bottom: 24px;">DETECT BODY POSITION</h2>                        
                 </div>            
-                <div class="left-aligned row controls card">
-                    <label> <!-- Video File Input -->
+                <div class="left-aligned column controls">
+                    <label> 
                         <span>Select video: </span>
                         <input id="videoFile" type="file" accept="video/*" />
                     </label>
+                    <div id="status" style="margin-bottom: 0px;">Select a video to get started.</div>
                 </div>
+                
             </div>
-
-            <div id="poseSection" class="centered column header" style="align-items: center; width: 100%;">           
-                <div class="spaced row" style="align-items: flex-start;">
+            <!-- Pose detection ------------------------------------------------------------>
+            <div id="poseSection" class="centered column">
+                <!-- Pose inputs + buttons (left) | img + landmark display (right) -->           
+                <div class="spaced row">
+                    <!-- Inputs + buttons -->
                     <div class="column muted params"> 
-                        <label> <!-- Set Interval for Frame Extraction -->
-                            Interval (sec): <input id="intervalInput" type="number" min="1" value="1" />
+                        <label> <!-- Set frame extraction interval -->
+                            Interval (sec):  <input id="intervalInput" type="number" min="1" value="1" />
                         </label>
-                        <!-- Detect Pose Landmarks in Extracted Frames -->            
-                        <button id="poseDetectBtn" disabled>Detect Pose Landmarks</button>
+                        <!-- Detect pose | download as JSON (optional) | open ORB section -->            
+                        <button id="poseDetectBtn" disabled>DETECT</button>
                         <button id="downloadBtn" disabled>Download JSON</button>
-                        <button id="showOrb" disabled>Go to ORB</button>
-                    </div>               
-                    <!-- Video and Overlay Canvas with Crop Box -->
-                    <div id="videoCropContainer" style="position:relative; display:inline-block; max-width:75%;">
-                        <video id="video" controls style="max-width:100%;"></video>
-                        <!-- Canvas to Overlay Pose Landmarks-->
-                        <canvas id="overlay" class="pose-canvas" style="position:absolute; left:0; top:0; pointer-events:none;"></canvas>
-                        <!-- Crop Box for Selecting Region of Interest -->
+                        <button id="showOrb" disabled>Open ORB</button>
+                    </div> 
+                    <!-- Video display, canvas overlay + crop box --------------------------->
+                    <div id="videoCropContainer">
+                        <video id="video" controls></video>
+                        <canvas id="overlay" class="pose-canvas"></canvas>
                         <div id="cropBoxPose" class="crop-box">
-                            <!-- Resize Handles (Draggable Corners) -->
-                            <div class="resize-handle" data-corner="nw"></div>
-                            <div class="resize-handle" data-corner="ne"></div>
-                            <div class="resize-handle" data-corner="sw"></div>
-                            <div class="resize-handle" data-corner="se"></div>
+                            <div class="resize-handle" data-corner="nw"></div> <!-- top left -->
+                            <div class="resize-handle" data-corner="ne"></div> <!-- top right -->
+                            <div class="resize-handle" data-corner="sw"></div> <!-- bottom left -->
+                            <div class="resize-handle" data-corner="se"></div> <!-- bottom right -->
                         </div>
-                        <!-- Frame Navigation for Extracted Frames -->
-
-                    </div>
-                    
-                </div>
-        
-                <div id="frameNav" class="centered row controls card" style="display:none;">
-                    <button id="prevFrameBtn">Previous</button>
+                    </div>                   
+                </div>        
+                <!-- Frame navigation for landmark display ------------------------------------>
+                <div id="frameNav" class="centered row controls card">
+                    <button id="prevFrameBtn" disabled>Previous</button>
                     <span id="frameCounter"></span>
-                    <button id="nextFrameBtn">Next</button>
+                    <button id="nextFrameBtn" disabled>Next</button>
                 </div>
-            </div>
+            </div> 
 
-            
-
-            <!-- ORB parameters and action buttons -->
-            <div id="orbSection" style="width: 100%;" hidden>
-                <div class="left-aligned column header">
-                    <h2>Detect ORB Features</h2>
-                    <div id="status-2" style="margin-bottom: 0px;">
-                        Optionally adjust detection parameters and select "Detect ORB" to 
-                        extract features from Image A.
+            <!---------------------------------------------------------------------------------->   
+            <!--                         ORB DETECTION SECTION                                -->
+            <!----------------------------------------------------------------------------------> 
+            <div id="orbSection" hidden>
+                <!-- ORB header and status ----------------------------------------------------->
+                <div class="left-aligned column header" style="margin-bottom: 24px;">
+                    <h2>DETECT BACKGROUND FEATURES</h2>
+                    <div class="left-aligned column controls">
+                        <div id="status-2">
+                            Select the detection area on the background --> Adjust detection parameters 
+                            (optional) --> Select "DETECT" to extract features from Image A.
+                        </div>
                     </div>
-                </div>
-                <div class="spaced row" style="align-items: flex-start;">
+                </div> 
+                <!-- ORB parameters/action buttons (left) + display (right)  -------------------->
+                <div class="spaced row"> 
+                    <!-- Parameter inputs + action buttons -------------------------------------->
                     <div class="column muted params">
+                        <!-- Parameter inputs -->
                         <strong>ORB Parameters</strong>
                         <div class="spaced row param">
                         nfeatures <input id="nfeatures" type="number" value="1200" min="100" max="5000">
@@ -91,59 +99,69 @@
                         <div class="spaced row param">
                         patchSize <input id="patchSize" type="number" value="31" min="1" max="100">
                         </div>
-
+                        <!-- Detect ORB features + download JSON buttons -->
                         <button id="btnDetect" style="margin: 24px 0 8px 0; width: 100%;" disabled>Detect ORB</button>
                         <button id="btnDownload" style="width: 100%;" disabled>Download features.json</button>
-
                     </div>
-
-                    <div style="position:relative; display:inline-block; max-width:75%;">
-                        <img id="imgA" class="orb-canvas" alt="Image A preview" />
-                        <div id="cropBoxOrbA" class="crop-box orb-canvas" style="position:absolute;">
+                    <!-- Initial display on showOrb click (image A + crop box) -------------------->
+                    <div id="imgWrapperA">
+                        <img id="imgA" class="canvas-wrapper" alt="Image A preview" />
+                        <div id="cropBoxOrbA" class="crop-box canvas-wrapper" style="position:absolute;">
                             <div class="resize-handle" data-corner="nw"></div>
                             <div class="resize-handle" data-corner="ne"></div>
                             <div class="resize-handle" data-corner="sw"></div>
                             <div class="resize-handle" data-corner="se"></div>
                         </div>
-                    </div>
+                    </div>                   
+                    <!-- Display detected ORB features -------------------------------------------->
                     <div class="left-aligned column">
-                        <canvas id="canvasA" class="orb-canvas" style="max-width:100%;" hidden></canvas>
+                        <canvas id="canvasA" style="max-width:100%;" hidden></canvas>
                         <div id="statsA" class="mono muted"></div>
                     </div>
                 </div>
             </div>
 
-            <div id="matchControls" style="width: 100%;" hidden>
-                <div class="left-aligned column header" style="width: 100%;">
-                    <h2>Match ORB Features and Overlay Pose</h2>
-                    <div id="status-3" style="margin-bottom: 0px;">
-                        Select an image B, optionally set matching parameters, select detection area
-                        and click "Match".
+            <!------------------------------------------------------------------------------------->
+            <!--                        ORB MATCHING / POSE OVERLAY SECTION                      -->
+            <!------------------------------------------------------------------------------------->            
+            <!-- Header, instructions + image B input---------------------------------------------->
+            <div id="matchControls" hidden>
+                <!-- Header + status/instructions -->
+                <div class="left-aligned column header full-width">
+                    <h2 style="margin-bottom: 24px;">MATCH BACKGROUND FEATURES AND OVERLAY POSE</h2>
+                </div>
+                <!-- Image B file input -->
+                <div class="left-aligned column controls full-width">
+                    <div class="left-aligned row">
+                        <label>
+                            Load features.json: <input id="fileJSON" type="file" accept=".json,application/json" />
+                        </label>
+                        <label style="margin-left: 24px;">
+                            Load Image B: <input id="fileB" type="file" accept="image/*" />
+                        </label>
+                    </div>
+                    <div id="status-3">
+                        Select Image B --> Adjust matching parameters (optional) 
+                        --> Select "MATCH" to find matching features and overlay pose landmarks.
                     </div>
                 </div>
-                <div class="left-aligned row controls card">
-                    <input id="fileJSON" type="file" accept=".json,application/json" />
-                    <input id="fileB" type="file" accept="image/*" />
-                </div>
-            </div>
-
-            
-            <div id="matchSection" style="width: 100%;" hidden>
-                <div class="row" style="width:100%; align-items:flex-start; gap:24px; justify-content: space-between; margin-top: 24px;">
+            </div>             
+            <!-- ORB matching/display + pose overlay ----------------------------------------->
+            <div id="matchSection" hidden>
+                <div class="spaced row">
                     <div class="column muted params">
-                        <div class="left-aligned row param">
+                        <div class="spaced row param">
                         ratio <input id="ratio" type="number" step="0.01" value="0.75">
                         </div>
-                        <div class="left-aligned row param">
+                        <div class="spaced row param">
                         RANSACthresh <input id="ransac" type="number" step="0.1" value="3.0">       
                         </div>
-                        <button id="btnMatch" style="margin-top: 24px; width: 100%;" disabled>Match</button>
-                    </div>
-                    
+                        <button id="btnMatch" disabled>Match</button>
+                    </div>                   
                     <div id="showMatch" hidden>
-                        <div id="imgWrapperB" style="position:relative; display:inline-block; max-width: 75%;">
-                            <img id="imgB" class="orb-canvas" alt="Image B preview" hidden/>
-                            <div id="cropBoxOrbB" class="crop-box orb-canvas" style="position:absolute;">
+                        <div id="imgWrapperB">
+                            <img id="imgB" class="canvas-wrapper" alt="Image B preview" hidden/>
+                            <div id="cropBoxOrbB" class="crop-box canvas-wrapper" style="position:absolute;">
                                 <div class="resize-handle" data-corner="nw"></div>
                                 <div class="resize-handle" data-corner="ne"></div>
                                 <div class="resize-handle" data-corner="sw"></div>
@@ -152,23 +170,21 @@
                         </div>
                     </div>
                     <div class="centered column">
-                        <div style="text-align:center;">
-                            <img id="frameImg" style="max-width:90%; margin: 16px 0;" />
-                        </div> 
-                        <div id="landmarkNav" style="display:none; margin:24px 0px; gap: 10px; justify-self: center;">
+                        <img id="frameImg" class="canvas-wrapper" />
+                        <div id="landmarkNav">
                             <button id="prevBtn">Previous</button>
                             <span id="frameCounter"></span>
                             <button id="nextBtn">Next</button>
                         </div> 
                     </div> 
                 </div>
-                <h2>Matched Features</h2>
-                <canvas id="canvasMatches" class="orb-canvas" style="width:100%;" hidden></canvas>
+                <canvas id="canvasMatches" style="width:100%;" hidden></canvas>
                 <div id="statsB" class="mono muted"></div>  
             </div>  
         </div>
-
-        <!-- Main JavaScript Modules -->
+        <!------------------------------------------------------------------------------------->
+        <!--                           MODULE SCRIPT FILES                                  -->
+        <!------------------------------------------------------------------------------------->
         <script type="module" src="pose/main.js"></script>
         <script type="module" src="orb/main.js"></script>
     </body>

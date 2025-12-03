@@ -1,0 +1,349 @@
+/* styles.css */
+
+/*____________________________________________________
+  GLOBAL STYLES  
+  ___________________________________________________*/
+
+:root { 
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+}
+
+html { 
+    box-sizing: border-box; 
+    background: rgb(255, 255, 255);
+    background-attachment: fixed;
+    min-height: 100vh;
+    min-width: 100vw; 
+}
+
+body {
+    display: flex; 
+    flex-direction: column; 
+    align-items: center;
+    justify-content: center; 
+    font-size: 18px;
+    margin: 0px 24px;
+    color: white;   
+}
+
+canvas, .canvas-wrapper {
+    max-width: 100%; 
+    height: auto;
+    max-height: 100%; 
+    border-radius: 4px; 
+    border: 1px solid #2d2d2d; 
+    box-shadow: 2px 2px 6px rgba(0,0,0,0.5);
+}
+
+h1 {
+    font-size: 32px;
+    text-align: center;
+    text-decoration: underline;
+    margin: 0;  
+}
+
+h2 {
+    margin: 0px; 
+    font-size: 24px;
+    font-weight: bold; 
+    color:rgb(17, 17, 17);
+    text-decoration: underline; 
+}
+
+button {
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    background: #2c7be5;
+    color: white;
+    font-weight: 500;
+    transition: background 0.3s ease;
+    box-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+button:hover {
+    background: #1a5edb;
+}
+
+
+button:disabled {
+    background: #444;
+    cursor: not-allowed;
+}
+
+input[type="file"] {
+    color: #eee;
+}
+
+video {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    border: 1px solid #2d2d2d;
+    box-shadow: 2px 2px 6px rgba(0,0,0,0.5);
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px; 
+    border: 1px solid #2d2d2d; 
+    box-shadow: 2px 2px 6px rgba(0,0,0,0.5);
+}
+
+label { 
+    display: flex; 
+    align-items: center;
+    gap:16px;
+}
+
+/*____________________________________________________
+  CONTAINER STYLES  
+  ___________________________________________________*/
+
+.main-wrapper {
+    display: flex; 
+    flex-direction: column; 
+    align-items: center;
+    justify-content: flex-start; 
+    width: 80vw; 
+    min-height: 100vh; 
+    color: rgb(17, 17, 17);
+    padding: 24px 48px;
+    box-sizing: border-box;
+    gap: 24px; 
+}
+
+.controls {
+    gap: 16px;
+    background:#101c27;
+    color: white;
+    margin: 0px; 
+    padding: 24px; 
+    box-sizing:border-box; 
+    width: 100%; 
+}
+
+/*____________________________________________________
+  CANVAS STYLES  
+  ___________________________________________________*/
+
+.pose-canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+    pointer-events: none;
+}
+
+/*___________________________________________________
+  PARAMETER INPUT STYLES 
+  ___________________________________________________*/
+
+.params {
+    padding: 24px; 
+    background:#101c27;
+    color: white; 
+    max-width:30%;
+    justify-content:flex-start;
+    box-sizing: border-box;
+}
+
+.param {
+    justify-content: space-between; 
+    margin-bottom: 8px; 
+}
+
+.param input {
+    width: 50px; 
+}
+
+/*___________________________________________________
+  CROP BOX STYLES  
+  ___________________________________________________*/
+
+.resize-handle {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    z-index: 2;
+}
+.resize-handle[data-corner="nw"] { 
+    left: -2px; 
+    top: -2px; 
+    border-left: 4px solid #000000;
+    border-top: 4px solid #000000; 
+    border-radius: 4px; 
+    cursor: nwse-resize; 
+}
+.resize-handle[data-corner="ne"] { 
+    right: -2px; 
+    top: -2px; 
+    border-right: 4px solid #000000;
+    border-top: 4px solid #000000; 
+    border-radius: 4px;
+    cursor: nesw-resize; 
+}
+.resize-handle[data-corner="sw"] { 
+    left: -2px; 
+    bottom: -2px; 
+    border-left: 4px solid #000000;
+    border-bottom: 4px solid #000000; 
+    border-radius: 4px;
+    cursor: nesw-resize; 
+}
+.resize-handle[data-corner="se"] { 
+    right: -2px; 
+    bottom: -2px; 
+    border-right: 4px solid #000000;
+    border-bottom: 4px solid #000000; 
+    border-radius: 4px;
+    cursor: nwse-resize; 
+}
+
+.crop-box {
+    position: absolute;
+    border: 2px solid rgba(0, 0, 0, 0.5);
+    background: rgba(115, 247, 115, 0.1);
+    z-index: 1;
+    box-sizing: border-box;
+    border-radius: 4px;
+    cursor: move;
+}
+
+/*___________________________________________________
+  TEXT STYLES  
+  _______________________________________________*/
+
+.mono { 
+    font-family: ui-monospace, 
+    SFMono-Regular, Menlo, monospace; 
+    font-size: 12px; 
+    white-space: pre-wrap; 
+}
+
+.header {
+    margin: 0px;
+    padding: 0px;
+    color: black;
+    width: 100%;
+    gap: 16px; 
+}
+
+/*___________________________________________________
+  FLEXBOX LAYOUT STYLES  
+  ___________________________________________________*/
+
+.row { 
+    display: flex;
+    flex-direction: row;
+    width: 100%; 
+    height: auto; 
+    gap: 16px;
+    
+}
+
+.column { 
+    display: flex;
+    flex-direction: column;
+    width: fill-available; 
+    height: auto;
+    gap: 16px; 
+
+}
+
+.centered {
+    justify-content: center; 
+    align-items: center; 
+}
+
+.left-aligned {
+    justify-content: flex-start; 
+    align-items: flex-start; 
+}
+
+.spaced {
+    justify-content: space-between; 
+    align-items: flex-start; 
+}
+
+.full-width {
+    width: 100%; 
+}
+
+/*___________________________________________________
+  ELEMENT STYLES  
+  ___________________________________________________*/
+
+#videoCropContainer, #imgWrapperA {
+    position:relative; 
+    display:inline-block; 
+    max-width:75%; 
+}
+
+#imgWrapperB {
+    position:relative; 
+    display:inline-block; 
+    max-width: 100%; 
+}
+
+#poseControls, #orbControls, #matchControls, 
+#poseSection, #orbSection, #matchSection {
+    width: 100%; 
+    gap: 24px; 
+}
+
+#canvasMatches {
+    margin-top: 24px; 
+}
+
+#landmarkNav {
+    display:none; 
+    gap: 24px; 
+    justify-self: center;
+}
+
+#frameNav button, #landmarkNav button {
+    width: 120px; 
+}
+
+#intervalInput {
+    width: 60px; 
+}
+
+#status, #status-2, #status-3 {
+    width: 100%; 
+    background: black; 
+    padding: 12px;
+    border-radius: 0px 0px 4px 4px;
+    box-sizing: border-box;
+    border: 4px solid #8d8d8d;
+    border-style: inset;
+    color: rgb(206, 255, 157); 
+    font-family:'Courier New', Courier, monospace;
+}
+
+/*___________________________________________________
+  RESPONSIVE STYLES  
+  ___________________________________________________*/
+
+@media (max-width: 600px) {
+    .row {
+        flex-direction: column;
+        width: 100%; 
+    }
+
+    .column {
+        width: 100%;
+    }
+}
+
+/*___________________________________________________
+  UTILITY STYLES  
+  ___________________________________________________*/
+
+/* Ensure hidden elements are not displayed */
+[hidden] {
+    display: none !important;
+}

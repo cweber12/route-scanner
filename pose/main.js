@@ -23,6 +23,8 @@ const statusEl       = el('status'); // Status display element
 const intervalInput  = el('intervalInput'); // Input for frame interval
 const frameNav       = el('frameNav'); // Frame navigation element
 const frameCounter   = el('frameCounter'); // Frame counter display
+const prevFrameBtn   = el('prevFrameBtn'); // Previous frame button
+const nextFrameBtn   = el('nextFrameBtn'); // Next frame button
 const cropBoxEl      = el('cropBoxPose'); // Crop box element
 const showImgA       = el('showImgA'); // Show Image A section
 
@@ -65,7 +67,9 @@ videoEl.addEventListener('loadedmetadata', () => {
 
   
   // Update status
-  statusEl.textContent = "Set detection interval, adjust crop box over subject, and click \"Detect Pose Landmarks\".";
+  statusEl.textContent = 
+    `Set detection interval (landmarks detected every n seconds) --> Adjust crop box over subject --> 
+     Click "DETECT".`;
 
 });
 
@@ -100,7 +104,6 @@ videoFileInput.addEventListener('change', (e) => {
 Run pose detection on video frames when button is clicked
 -----------------------------------------------------------------------------------*/
 poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
-  frameNav.style.display = 'none'; // Hide frame navigation
   canvasEl.style.display = ''; // Show canvas
   videoEl.style.display  = ''; // Show video
   videoEl.style.position = 'relative'; // Ensure video is positioned for overlay
@@ -139,6 +142,8 @@ poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
     cropRect
   );
 
+  prevFrameBtn.disabled = poseResults.length === 0;
+  nextFrameBtn.disabled = poseResults.length === 0;
   cropBoxEl.style.zIndex = 1; // Restore crop box z-index
   cropBoxEl.hidden = true; // Hide crop box after detection
   showOrbBtn.disabled = poseResults.length === 0;

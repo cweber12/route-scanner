@@ -74,7 +74,8 @@ const cropBoxEl    = el('cropBoxOrbA'); // Crop box for Image A
 const cropBoxElB   = el('cropBoxOrbB'); // Crop box for Image B
 
 // Status display element
-const statusEl     = el('status-2');
+const statusEl      = el('status');
+const status2El     = el('status-2');
 
 /*___________________________________________________________________________________
                             GLOBAL VARIABLES
@@ -276,7 +277,7 @@ btnDetect.addEventListener('click', () => {
     } finally { 
         src.delete(); // release Mat
         refreshButtons(); // refresh buttons
-        statusEl.textContent = 'Detection complete. Optionally download features.json or proceed to Match.';
+        status2El.textContent = 'Detection complete. Download features.json (optional) --> Proceed to Match.';
     }
 });
 
@@ -517,7 +518,10 @@ btnMatch.addEventListener('click', () => {
 /*-----------------------------------------------------------------------
 SHOW ORB DETECTION SECTION   
 Get first frame image from shared state and display it in imgA for
-ORB detection. */
+ORB detection. 
+
+NOTE: This button seems unnecessary but it is kept to handle the 
+extraction of the first frame image used in ORB detection. */
 
 showOrbBtn.addEventListener('click', async () => {
     console.log('Switching to ORB mode');
@@ -540,6 +544,8 @@ showOrbBtn.addEventListener('click', async () => {
     detectResult       = null; // reset previous detection result
     statsA.textContent = ''; // clear stats A
     canvasA.hidden     = true; // hide canvas A
+
+    statusEl.textContent = 'V V V SCROLL DOWN V V V';
     
     refreshButtons(); // refresh buttons
 });
