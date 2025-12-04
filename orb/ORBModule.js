@@ -8,25 +8,6 @@ export class ORBModule {
     this.cv = cv; // OpenCV.js instance
     this._lastCanvasMat = null; // cached canvas Mat for drawing
   }
-
-  /*_______________________________________________________________________________
-
-  Public methods:
-    - detectORB: detect ORB features in an image
-    - exportJSON: export detected features to JSON
-    - importJSON: import features from JSON
-    - matchToTarget: match features to a target image
-    - drawKeypoints: draw keypoints on a canvas
-    - drawMatches: draw matches between two images
-
-  Internal methods:
-    - _serializeKeypoints: serialize KeyPointVector to JS array
-    - _serializeDescriptors: serialize descriptor Mat to JS object
-    - _u8ToB64: convert Uint8Array to base64 string
-    - _b64ToU8: convert base64 string to Uint8Array
-    - _releaseLastCanvasMat: release last cached canvas Mat
-  _______________________________________________________________________________*/
-
   
   /*_______________________________________________________________________________
                               PUBLIC METHODS
@@ -175,7 +156,7 @@ export class ORBModule {
   Match ORB features from source JSON to target image Mat using KNN + ratio test
 
   Input:
-    - sourceJson: detected features from source image 
+    - sourceJson: JSON data with ORB keypoints/descriptors and original image size  
     - targetMat: cv.Mat of target image (RGBA)
     - opts: matching options { ratio, ransacReprojThreshold }
   Output:
@@ -211,17 +192,17 @@ export class ORBModule {
 
     // 6. Convert target image to grayscale
     const gray = new cv.Mat(); // Grayscale Mat
-    cv.cvtColor (  // Convert to grayscale
-      targetMat, // source Mat
-      gray, // destination Mat
-      cv.COLOR_RGBA2GRAY // color conversion code
+    cv.cvtColor (  // Convert target to grayscale
+      targetMat, 
+      gray, 
+      cv.COLOR_RGBA2GRAY 
     );
 
     // 7. Set up ORB detector
-    const orb = new cv.ORB(this._nfeatures || 1200); // ORB detector
-    const tgtKP = new cv.KeyPointVector(); // Target keypoints
+    const orb     = new cv.ORB(this._nfeatures || 1200); // ORB detector
+    const tgtKP   = new cv.KeyPointVector(); // Target keypoints
     const tgtDesc = new cv.Mat(); // Target descriptors
-    const empty = new cv.Mat(); // Empty mask
+    const empty   = new cv.Mat(); // Empty mask
     
     // 8. Detect and compute on target image
     orb.detectAndCompute(gray, empty, tgtKP, tgtDesc, false);

@@ -16,7 +16,7 @@ import {
 // Import other modules from directory
 import { VideoFrameExtractor } from '../VideoFrameExtractor.js';
 import {setShared} from '../shared_state.js'; 
-import { drawLandmarksOnImage } from './draw_landmarks.js'; 
+import { drawLandmarksOnImage } from './pose_utils.js'; 
 
 
 /* DETECT POSE ON FRAMES
@@ -282,7 +282,8 @@ export async function runPoseDetectionOnFrames(
     };
 
     // Update status (instructions to user)
-    statusEl.textContent = 
-        `Finished pose detection. Review processed frames, optionally download results, 
-        and select \"Detect ORB\" to continue.`;
+    statusEl.innerHTML = 
+        `&gt; Poses detected in ${poseResults.length} frames<br>
+        &gt; Use prev/next buttons to review frames<br>
+        &gt; Click 'Open ORB' and scroll down`;
 }

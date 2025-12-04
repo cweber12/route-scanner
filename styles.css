@@ -10,8 +10,6 @@
 
 html { 
     box-sizing: border-box; 
-    background: rgb(255, 255, 255);
-    background-attachment: fixed;
     min-height: 100vh;
     min-width: 100vw; 
 }
@@ -30,9 +28,6 @@ canvas, .canvas-wrapper {
     max-width: 100%; 
     height: auto;
     max-height: 100%; 
-    border-radius: 4px; 
-    border: 1px solid #2d2d2d; 
-    box-shadow: 2px 2px 6px rgba(0,0,0,0.5);
 }
 
 h1 {
@@ -46,8 +41,11 @@ h2 {
     margin: 0px; 
     font-size: 24px;
     font-weight: bold; 
-    color:rgb(17, 17, 17);
-    text-decoration: underline; 
+    color:rgb(255, 255, 255);
+    padding: 12px 24px; 
+    width: 100%; 
+    background: rgb(0, 0, 0); 
+    box-sizing: border-box;
 }
 
 button {
@@ -60,6 +58,7 @@ button {
     font-weight: 500;
     transition: background 0.3s ease;
     box-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    width: 160px;
 }
 
 button:hover {
@@ -73,24 +72,22 @@ button:disabled {
 }
 
 input[type="file"] {
-    color: #eee;
+    color: black;
 }
 
 video {
     display: block;
     max-width: 100%;
     height: auto;
-    border-radius: 4px;
     border: 1px solid #2d2d2d;
-    box-shadow: 2px 2px 6px rgba(0,0,0,0.5);
+    box-shadow: 2px 0px 6px rgba(0,0,0,0.5);
 }
 
 img {
     max-width: 100%;
     height: auto;
-    border-radius: 4px; 
     border: 1px solid #2d2d2d; 
-    box-shadow: 2px 2px 6px rgba(0,0,0,0.5);
+    box-shadow: 2px 0px 6px rgba(0,0,0,0.5);
 }
 
 label { 
@@ -110,6 +107,7 @@ label {
     justify-content: flex-start; 
     width: 80vw; 
     min-height: 100vh; 
+    background: white;
     color: rgb(17, 17, 17);
     padding: 24px 48px;
     box-sizing: border-box;
@@ -118,11 +116,13 @@ label {
 
 .controls {
     gap: 16px;
-    background:#101c27;
-    color: white;
+    background:#313647;
+    color: rgb(226, 226, 226);
     margin: 0px; 
-    padding: 24px; 
-    box-sizing:border-box; 
+    padding: 24px;
+    border:4px solid black;
+    box-shadow: 2px 2px 6px rgba(0,0,0,0.5);
+    box-sizing: border-box; 
     width: 100%; 
 }
 
@@ -143,11 +143,13 @@ label {
 
 .params {
     padding: 24px; 
-    background:#101c27;
-    color: white; 
-    max-width:30%;
+    color: black;
+    background: rgba(255,255,255,0.8);
+    border: 2px solid black;
+    width: 100%;
     justify-content:flex-start;
     box-sizing: border-box;
+    border-radius: 4px; 
 }
 
 .param {
@@ -174,7 +176,6 @@ label {
     top: -2px; 
     border-left: 4px solid #000000;
     border-top: 4px solid #000000; 
-    border-radius: 4px; 
     cursor: nwse-resize; 
 }
 .resize-handle[data-corner="ne"] { 
@@ -182,7 +183,6 @@ label {
     top: -2px; 
     border-right: 4px solid #000000;
     border-top: 4px solid #000000; 
-    border-radius: 4px;
     cursor: nesw-resize; 
 }
 .resize-handle[data-corner="sw"] { 
@@ -190,7 +190,6 @@ label {
     bottom: -2px; 
     border-left: 4px solid #000000;
     border-bottom: 4px solid #000000; 
-    border-radius: 4px;
     cursor: nesw-resize; 
 }
 .resize-handle[data-corner="se"] { 
@@ -198,7 +197,6 @@ label {
     bottom: -2px; 
     border-right: 4px solid #000000;
     border-bottom: 4px solid #000000; 
-    border-radius: 4px;
     cursor: nwse-resize; 
 }
 
@@ -208,13 +206,12 @@ label {
     background: rgba(115, 247, 115, 0.1);
     z-index: 1;
     box-sizing: border-box;
-    border-radius: 4px;
     cursor: move;
 }
 
 /*___________________________________________________
   TEXT STYLES  
-  _______________________________________________*/
+  ___________________________________________________*/
 
 .mono { 
     font-family: ui-monospace, 
@@ -263,6 +260,11 @@ label {
     align-items: flex-start; 
 }
 
+.right-aligned {
+    justify-content: flex-end; 
+    align-items: flex-end; 
+}
+
 .spaced {
     justify-content: space-between; 
     align-items: flex-start; 
@@ -279,7 +281,7 @@ label {
 #videoCropContainer, #imgWrapperA {
     position:relative; 
     display:inline-block; 
-    max-width:75%; 
+    max-width:100%; 
 }
 
 #imgWrapperB {
@@ -291,21 +293,32 @@ label {
 #poseControls, #orbControls, #matchControls, 
 #poseSection, #orbSection, #matchSection {
     width: 100%; 
-    gap: 24px; 
+    gap: 0px; 
 }
 
 #canvasMatches {
     margin-top: 24px; 
 }
 
+#frameNav {
+    display: flex; 
+    flex-direction: row; 
+    justify-content: center;
+    align-items: center;
+    gap: 12px; 
+    margin-top: 16px; 
+    width: 100%; 
+    color: white;
+    box-sizing: border-box;
+}
+
 #landmarkNav {
-    display:none; 
     gap: 24px; 
     justify-self: center;
 }
 
 #frameNav button, #landmarkNav button {
-    width: 120px; 
+    width: 120px;
 }
 
 #intervalInput {
@@ -313,15 +326,14 @@ label {
 }
 
 #status, #status-2, #status-3 {
-    width: 100%; 
-    background: black; 
-    padding: 12px;
-    border-radius: 0px 0px 4px 4px;
-    box-sizing: border-box;
-    border: 4px solid #8d8d8d;
-    border-style: inset;
-    color: rgb(206, 255, 157); 
+    color: chartreuse; 
     font-family:'Courier New', Courier, monospace;
+    padding: 8px; 
+    background: rgba(0,0,0,0.8);
+    border-radius: 4px;
+    box-shadow: 2px 2px 6px rgba(0,0,0,0.5);
+    width: 100%; 
+    box-sizing: border-box; 
 }
 
 /*___________________________________________________

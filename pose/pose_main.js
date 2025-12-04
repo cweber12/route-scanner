@@ -6,6 +6,13 @@ import { loadOpenCV } from '../load_opencv.js';
 import { setShared } from '../shared_state.js';
 import { CropBox } from '../CropBox.js';
 
+/*
+TODO: 
+- Add option to download pose results as JSON (save body position and movements for an event) 
+- Add option to start and stop detection at specific times. 
+- Figure out how to use a built in video as the default example. Currently loads too slow
+  with src="assets/default_video.mp4". Host vid on S3?  
+
 /*___________________________________________________________________________________
                                   DOM ELEMENTS
 ___________________________________________________________________________________*/
@@ -17,7 +24,6 @@ const videoFileInput = el('videoFile'); // Video file input element
 const videoEl        = el('video'); // Video element
 const canvasEl       = el('overlay'); // Canvas element for overlay
 const poseDetectBtn  = el('poseDetectBtn'); // Button to start pose detection
-const downloadBtn    = el('downloadBtn');// Button to download results
 const showOrbBtn     = el('showOrb'); // Button to show ORB features
 const statusEl       = el('status'); // Status display element
 const intervalInput  = el('intervalInput'); // Input for frame interval
@@ -43,7 +49,7 @@ ________________________________________________________________________________
 -----------------------------------------------------------------------------------
 Set up canvas and crop box when video metadata is loaded (video uploaded)
 -----------------------------------------------------------------------------------*/
-videoEl.addEventListener('loadedmetadata', () => {
+videoEl.addEventListener('loadeddata', () => {
   poseDetectBtn.disabled = false; // Enable pose detect button
   poseSection.hidden = false; // Show pose section
   // Set canvas internal pixel buffer size to match video size
@@ -67,9 +73,9 @@ videoEl.addEventListener('loadedmetadata', () => {
 
   
   // Update status
-  statusEl.textContent = 
-    `Set detection interval (landmarks detected every n seconds) --> Adjust crop box over subject --> 
-     Click "DETECT".`;
+  statusEl.innerHTML = 
+    `&gt; Set crop box around target (leave room for full range of motion).<br>
+    &gt; Click 'Detect Pose' to start pose detection.`;
 
 });
 
@@ -96,7 +102,7 @@ videoFileInput.addEventListener('change', (e) => {
   const url = URL.createObjectURL(file); // Create object URL for the file
   videoEl.src = url; // Set video element source to the file URL
   poseDetectBtn.disabled = true; // Disable pose detect button until video is loaded
-  statusEl.textContent = "Loading video..."; // Update status
+  statusEl.textContent = "> Loading video..."; // Update status
 });
 
 /* ON POSE DETECT BUTTON CLICK
@@ -128,7 +134,6 @@ poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
   // Get interval n
   const n = parseInt(intervalInput.value, 10) || 1;
   poseResults.length = 0;
-  downloadBtn.disabled = true;
 
   // Run pose detection on frames with cropping
   await runPoseDetectionOnFrames(
@@ -142,12 +147,12 @@ poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
     cropRect
   );
 
+  frameNav.hidden = false;
   prevFrameBtn.disabled = poseResults.length === 0;
   nextFrameBtn.disabled = poseResults.length === 0;
   cropBoxEl.style.zIndex = 1; // Restore crop box z-index
   cropBoxEl.hidden = true; // Hide crop box after detection
   showOrbBtn.disabled = poseResults.length === 0;
-  downloadBtn.disabled = poseResults.length === 0;
   await loadOpenCV();
   console.log('OpenCV loaded');
 
@@ -163,27 +168,3 @@ poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
     height: videoEl.videoHeight
   });
 });
-
-/* ON DOWNLOAD BUTTON CLICK
------------------------------------------------------------------------------------
-Download collected pose landmarks as JSON file
------------------------------------------------------------------------------------*/
-downloadBtn.addEventListener('click', () => {
-  if (poseResults.length === 0) {
-    alert("No pose data collected yet.");
-    return;
-  }
-  
-  const blob = new Blob([
-    JSON.stringify(normalizedResults, null, 2)], 
-      { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = "pose_landmarks.json";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-});
-
