@@ -35,7 +35,6 @@ export async function runPoseDetectionOnFrames(
     poseResults, // output array to hold results
     intervalSeconds, // detect every n seconds 
     frameNav, // frame navigation controls
-    frameCounter, // frame counter display
     cropRect // cropping rectangle for the video
 ) {
     const vision = await FilesetResolver.forVisionTasks(
@@ -262,7 +261,6 @@ export async function runPoseDetectionOnFrames(
                     { color: 'lime', lineWidth: 2 }
                 );
             }
-            frameCounter.textContent = `Frame ${currentFrameIdx + 1} / ${poseResults.length}`;
         };
     }
     

@@ -28,11 +28,12 @@ const showOrbBtn     = el('showOrb'); // Button to show ORB features
 const statusEl       = el('status'); // Status display element
 const intervalInput  = el('intervalInput'); // Input for frame interval
 const frameNav       = el('frameNav'); // Frame navigation element
-const frameCounter   = el('frameCounter'); // Frame counter display
 const prevFrameBtn   = el('prevFrameBtn'); // Previous frame button
 const nextFrameBtn   = el('nextFrameBtn'); // Next frame button
 const cropBoxEl      = el('cropBoxPose'); // Crop box element
 const showImgA       = el('showImgA'); // Show Image A section
+const showOrbParams  = el('showOrbParams'); // Show ORB parameters section
+const orbParamsEl    = el('orbParams'); // ORB parameters section
 
 /*___________________________________________________________________________________
                               GLOBAL VARIABLES
@@ -105,6 +106,10 @@ videoFileInput.addEventListener('change', (e) => {
   statusEl.textContent = "> Loading video..."; // Update status
 });
 
+showOrbParams.addEventListener('click', () => {
+  orbParamsEl.hidden = !orbParamsEl.hidden;
+});
+
 /* ON POSE DETECT BUTTON CLICK
 -----------------------------------------------------------------------------------
 Run pose detection on video frames when button is clicked
@@ -135,6 +140,7 @@ poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
   const n = parseInt(intervalInput.value, 10) || 1;
   poseResults.length = 0;
 
+  statusEl.textContent = "> Detecting pose landmarks...";
   // Run pose detection on frames with cropping
   await runPoseDetectionOnFrames(
     videoEl,
@@ -143,7 +149,6 @@ poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
     poseResults,
     n,
     frameNav,
-    frameCounter,
     cropRect
   );
 
