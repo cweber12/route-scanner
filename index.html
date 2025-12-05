@@ -126,22 +126,27 @@
                 <!-- Header + status/instructions -->
                 <div class="left-aligned column header-wrapper full-width">
                     <h2>MATCH BACKGROUND FEATURES AND OVERLAY POSE</h2>
-                </div>
-                <!-- Image B file input -->
-                <div class="left-aligned column controls full-width">
+                
                     <div id="status-3">
                         &gt; Load a second image containing the same background region used for 
                         ORB detection.<br>
                         &gt; Adjust the crop box around the background region.<br>
                         &gt; Click "Match".
                     </div>
+                    <div class="spaced row">
+                        <input id="fileB" type="file" accept="image/*" /> 
+                        <button id="btnMatch" disabled>Match Features</button>
+                    </div>
+                </div>
+                <!-- Image B file input -->
+                <div class="left-aligned column controls full-width">
+                    
                     <!-- ORB matching/display + pose overlay ----------------------------------------->
                     <div id="matchSection" hidden>
                         <!-- ORB matching parameters/buttons + image preview/crop box ---------------->
                         <div class="left-aligned column">
                             <!-- Parameters + match button-->
                             <div class="spaced row muted params">
-                                <input id="fileB" type="file" accept="image/*" />
                                 <div class="right-aligned row">
                                     <div class="left-aligned column" style="display: none;">
                                         <div class="left-aligned row param">
@@ -151,7 +156,7 @@
                                             RANSACthresh <input id="ransac" type="number" step="0.1" value="3.0">       
                                         </div>
                                     </div>
-                                    <button id="btnMatch" disabled>Match Features</button>
+                                    
                                 </div>
                             </div> 
                             <!-- Image B preview and crop box --------------------------------------->                  

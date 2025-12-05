@@ -12,7 +12,7 @@ html {
     box-sizing: border-box; 
     min-height: 100vh;
     min-width: 100vw;
-    background: #1e1e1e; 
+    background: #435663; 
 }
 
 body {
@@ -41,16 +41,19 @@ h1 {
 h2 {
     margin: 0px; 
     font-size: 24px;
-    font-weight: bold; 
+    color: #FFF8D4; 
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
 }
 
 .header-wrapper {
-    color:black;
+    color: #FFF8D4;
     padding: 12px 24px 24px 24px; 
     width: 100%; 
-    background: white;
-    border: 2px solid black;
-    box-shadow: 2px 2px 6px rgba(0,0,0,0.5);
+    background: #313647;
+    border-top: 2px solid black;
+    border-left: 2px solid black;
+    border-right: 2px solid black;
+    box-shadow: 2px 0px 6px rgba(0,0,0,0.5);
     box-sizing: border-box;
 }
 
@@ -78,7 +81,7 @@ button:disabled {
 }
 
 input[type="file"] {
-    color: black;
+    color: #FFF8D4;
 }
 
 video {
@@ -121,7 +124,7 @@ label {
 
 .controls {
     gap: 16px;
-    background:#313647;
+    background: rgba(0, 0, 0, 0.5);
     color: rgb(226, 226, 226);
     margin: 0px; 
     padding: 24px;
@@ -147,7 +150,7 @@ label {
   ___________________________________________________*/
 
 .params {
-    color: white;
+    color: black;
     width: 100%;
     justify-content:flex-start;
     box-sizing: border-box;
@@ -177,20 +180,24 @@ label {
     top: -2px; 
     border-left: 4px solid #000000;
     border-top: 4px solid #000000; 
+    box-sizing: border-box; 
     cursor: nwse-resize; 
 }
 .resize-handle[data-corner="ne"] { 
     right: -2px; 
     top: -2px; 
     border-right: 4px solid #000000;
-    border-top: 4px solid #000000; 
+    border-top: 4px solid #000000;
+    box-sizing: border-box;
     cursor: nesw-resize; 
 }
+
 .resize-handle[data-corner="sw"] { 
     left: -2px; 
     bottom: -2px; 
     border-left: 4px solid #000000;
     border-bottom: 4px solid #000000; 
+    box-sizing: border-box;
     cursor: nesw-resize; 
 }
 .resize-handle[data-corner="se"] { 
@@ -198,6 +205,7 @@ label {
     bottom: -2px; 
     border-right: 4px solid #000000;
     border-bottom: 4px solid #000000; 
+    box-sizing: border-box;
     cursor: nwse-resize; 
 }
 
@@ -343,9 +351,11 @@ label {
     top: 100%;
     z-index: 10;
     min-width: 220px; /* or whatever width you want */
-    background: #fff;
-    border: 1px solid #ccc;
+    background: rgba(255, 255, 255, 0.8);
+    color: black; 
+    border: 2px solid black;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-bottom-left-radius: 4px;
     padding: 12px;
 }
 

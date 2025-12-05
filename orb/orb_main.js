@@ -17,6 +17,10 @@ import { drawLandmarksOnImage } from '../pose/pose_utils.js?v=20251104';
 
 console.log('orb/main.js loaded');
 
+/* TODO: 
+- Add option to interpolate frames or not. Frame interpolation takes a while
+*/
+
 /*___________________________________________________________________________________
                                   DOM ELEMENTS
 ___________________________________________________________________________________*/
@@ -36,7 +40,10 @@ const canvasMatches = el('canvasMatches'); // Display matches between A and B
 // Action buttons
 const btnDetect   = el('btnDetect'); // Detect features button
 const btnMatch    = el('btnMatch'); // Match features button
-const showOrbBtn  = el('showOrb'); // Show ORB button to switch to ORB mode
+const showOrbBtn  = el('showOrb'); // Show ORB button to switch to ORB mode 
+
+// Pose parameters elements
+const intervalInput = el('intervalInput'); // Input for frame interval
 
 // ORB detection stats 
 const statsA = el('statsA'); // Stats display for Image A
@@ -88,9 +95,15 @@ const haveFeatures = () => Boolean(detectResult);
 
 const cv = window.cv; // attach OpenCV.js API
 
-let orbModule; // ORBModule instance for ORB detection and matching
+let orbModule; 
 let orbDetectionParameters = {};
 let orbMatchParameters = {}; 
+
+let landmarkImages = [];
+let landmarkFrameIdx = 0;
+
+let detectResult = null; // Detection result state
+let orbJSON   = null; // Detected features JSON state
 
 /*___________________________________________________________________________________
                                   STATES
@@ -99,8 +112,6 @@ ________________________________________________________________________________
 let cvReady      = false; // OpenCV.js readiness flag 
 let imgAReady    = false; // Image A readiness flag
 let imgBReady    = false; // Image B readiness flag
-let detectResult = null; // Detection result state
-let orbJSON   = null; // Detected features JSON state
 
 /*------------------------------------------------------------------------------------
 VERIFY OPENCV.JS IS READY
@@ -143,6 +154,34 @@ function refreshButtons() {
     btnMatch.disabled  = !(cvReady && imgBReady && haveFeatures()); 
 }
 
+/*------------------------------------------------------------------------------------
+INTERPOLATE FRAMES IN WORKER
+Offload frame interpolation to a Web Worker */
+
+function interpolateFramesInWorker(frames, interval) {
+    return new Promise((resolve, reject) => {
+        const worker = new Worker('interpolate.js');
+        worker.postMessage({ frames, interval });
+        worker.onmessage = (e) => {
+            resolve(e.data);
+            worker.terminate();
+        };
+        worker.onerror = (err) => {
+            reject(err);
+            worker.terminate();
+        };
+    });
+}
+
+function showLandmarkFrame(idx) {
+    if (!landmarkImages.length) return;
+    landmarkFrameIdx = Math.max(0, Math.min(idx, landmarkImages.length - 1));
+    frameImg.src = landmarkImages[landmarkFrameIdx];
+    frameCounter.textContent = `Frame ${landmarkFrameIdx + 1} / ${landmarkImages.length}`;
+    prevBtn.disabled = landmarkFrameIdx === 0;
+    nextBtn.disabled = landmarkFrameIdx === landmarkImages.length - 1;
+}
+
 /*___________________________________________________________________________
                                 EVENT HANDLERS
 ____________________________________________________________________________*/   
@@ -171,6 +210,10 @@ fileB.addEventListener('change', async () => {
     }
     refreshButtons(); // refresh button states
 });
+
+prevBtn.addEventListener('click', () => showLandmarkFrame(landmarkFrameIdx - 1));
+nextBtn.addEventListener('click', () => showLandmarkFrame(landmarkFrameIdx + 1));
+
 
 /*--------------------------------------------------------------------------- 
 ON "DETECT" BUTTON CLICK 
@@ -414,54 +457,40 @@ btnMatch.addEventListener('click', () => {
         setShared('transformedPoseLandmarks', transformedAllFrames);
 
         /*-----------------------------------------------------------------------
-        Draw transformed landmarks on copies of image B and store the images */
-
-        const drawnImages = [];
-        for (let i = 0; i < transformedAllFrames.length; i++) {
-            const landmarks = transformedAllFrames[i];
-            if (!landmarks || landmarks.length === 0) continue;
-
-            // Create a new canvas for each frame
-            const tempCanvas = document.createElement('canvas');
-            // Draw landmarks on a copy of image B
-            drawLandmarksOnImage(tempCanvas, imgB, landmarks, 'lime');
-            // Store the image as a data URL
-            drawnImages.push(tempCanvas.toDataURL());
-        }
-
-        // Optionally, store in shared state for later use
-        setShared('landmarkImagesOnB', drawnImages);
-
-        console.log('Drawn images with landmarks:', drawnImages);
-
-        /*-----------------------------------------------------------------------
         Display images with drawn landmarks */
 
-        let landmarkImages = [];
-        let landmarkFrameIdx = 0;
+        /*-----------------------------------------------------------------------
+        Interpolate between processed frames to fill in missing frames */
 
-        function showLandmarkFrame(idx) {
-            if (!landmarkImages.length) return;
-            landmarkFrameIdx = Math.max(0, Math.min(idx, landmarkImages.length - 1));
-            frameImg.src = landmarkImages[landmarkFrameIdx];
-            frameCounter.textContent = `Frame ${landmarkFrameIdx + 1} / ${landmarkImages.length}`;
-            prevBtn.disabled = landmarkFrameIdx === 0;
-            nextBtn.disabled = landmarkFrameIdx === landmarkImages.length - 1;
-        }
+        const interval = Number(intervalInput.value) || 1;
 
-        prevBtn.addEventListener('click', () => showLandmarkFrame(landmarkFrameIdx - 1));
-        nextBtn.addEventListener('click', () => showLandmarkFrame(landmarkFrameIdx + 1));
+        interpolateFramesInWorker(transformedAllFrames, interval)
+            .then(interpolatedFrames => {
+                const drawnImages = [];
+                for (let i = 0; i < interpolatedFrames.length; i++) {
+                    const landmarks = interpolatedFrames[i];
+                    if (!landmarks || landmarks.length === 0) continue;
+                    const tempCanvas = document.createElement('canvas');
+                    drawLandmarksOnImage(tempCanvas, imgB, landmarks, 'lime');
+                    drawnImages.push(tempCanvas.toDataURL());
+                }
 
-        // After you generate drawnImages:
-        landmarkImages = drawnImages;
-        if (landmarkImages.length > 0) {
-            landmarkNav.hidden = false;
-            showLandmarkFrame(0);
-            frameImg.style.display = '';
-        } else {
-            landmarkNav.hidden = true;
-            frameImg.style.display = 'none';
-        }
+                setShared('landmarkImagesOnB', drawnImages);
+
+                landmarkImages = drawnImages;
+                if (landmarkImages.length > 0) {
+                    landmarkNav.hidden = false;
+                    showLandmarkFrame(0);
+                    frameImg.style.display = '';
+                } else {
+                    landmarkNav.hidden = true;
+                    frameImg.style.display = 'none';
+                }
+            })
+            .catch(err => {
+                console.error('Interpolation worker error:', err);
+                alert('Interpolation failed.');
+            });
 
 
     // Catch any errors during matching
@@ -506,7 +535,7 @@ showOrbBtn.addEventListener('click', async () => {
     statsA.textContent = ''; // clear stats A
     canvasA.hidden     = true; // hide canvas A
 
-    statusEl.textContent = '> SCROLL DOWN TO "DETECT BACKGROUND FEATURES"';
+    statusEl.textContent = '> Scroll down to "Detect Background Features"';
     
     refreshButtons(); // refresh buttons
 });
