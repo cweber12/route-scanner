@@ -3,24 +3,17 @@
 
 import { setShared } from '../shared_state.js';
 
+import {matFromImageEl} from './orb_utils.js'
+
 export class ORBModule {
   constructor(cv) { 
     this.cv = cv; // OpenCV.js instance
-    this._lastCanvasMat = null; // cached canvas Mat for drawing
   }
   
   /*_______________________________________________________________________________
                               PUBLIC METHODS
   _______________________________________________________________________________*/
   
-  /* DETECT ORB FEATURES IN IMAGE
-  ---------------------------------------------------------------------------------
-  Input:
-  - srcRGBA: source image as cv.Mat in RGBA format
-  - opts: Parameters for ORB detection
-  Output:
-  - detectResult: object with keypoints, descriptors, width, height
-  ---------------------------------------------------------------------------------*/
   detectORB(srcRGBA, opts = {}) {
     const cv = this.cv; 
     
@@ -37,12 +30,11 @@ export class ORBModule {
       fastThreshold = 20 // Threshold for FAST corner detector
     } = opts; 
 
-    // 1. Create new Mats and ORB detector
+    // Create new Mats and ORB detector
     const gray = new cv.Mat();
     cv.cvtColor(srcRGBA, gray, cv.COLOR_RGBA2GRAY);
 
-    // 2. Create ORB detector with specified parameters
-    const orb = new cv.ORB(
+    const orbDetector = new cv.ORB(
       nfeatures, 
       scaleFactor, 
       nlevels, 
@@ -61,7 +53,7 @@ export class ORBModule {
     // 4. Perform detection and computation
     try {
       // 4.1 Detect and compute
-      orb.detectAndCompute(
+      orbDetector.detectAndCompute(
         gray, // input image (grayscale)
         new cv.Mat(), // mask (none)
         kpVec, // output keypoints
@@ -74,44 +66,38 @@ export class ORBModule {
 
       // 4.3 Return the results
       return { 
-        keypoints, // array of keypoints
-        descriptors, // descriptors Mat
-        width: srcRGBA.cols, // image width
-        height: srcRGBA.rows // image height
+        keypoints, 
+        descriptors, 
+        width: srcRGBA.cols,
+        height: srcRGBA.rows 
       };
     
-    // 5. Clean up
     } finally {
-      orb.delete(); kpVec.delete(); des.delete(); gray.delete();
+      orbDetector.delete(); 
+      kpVec.delete(); 
+      des.delete(); 
+      gray.delete();
     }
   }
   
-  /* EXPORT JSON WITH SOURCE IMAGE FEATURES
-  ---------------------------------------------------------------------------------
-  Export detected features to JSON format and download as features.json
+  /* CREATE JSON WITH DETECTION RESULTS
+  ________________________________________________________________________ */
 
-  Input:
-  - detectResult: result from detectORB
-  Output:
-  - json: JSON object with features
-  ---------------------------------------------------------------------------------*/
   exportJSON(detectResult) {  
-    // 1. Get results from detectORB
+
     const { keypoints, descriptors, width, height } = detectResult;
     
-    // 2. Normalize keypoints to [0,1] range
-    const normKeypoints = keypoints.map(kp => ({
-      ...kp, // spread existing properties
-      x: kp.x / width, // normalize x coordinate
-      y: kp.y / height // normalize y coordinate
+    const normalizedKeypoints = keypoints.map(kp => ({
+      ...kp, 
+      x: kp.x / width, 
+      y: kp.y / height 
     }));
 
-    // 3. Create JSON object
     const json = {
       version: 1,
       type: "ORB",
       imageSize: { width, height },
-      keypoints: normKeypoints,
+      keypoints: normalizedKeypoints,
       descriptors: descriptors ? {
         rows: descriptors.rows,
         cols: descriptors.cols,
@@ -121,161 +107,96 @@ export class ORBModule {
 
     return json;
   }
-  
-  /* IMPORT JSON WITH SOURCE IMAGE FEATURES
-  ---------------------------------------------------------------------------------
-  Import features from JSON features.json
 
-  Input:
-  - obj: parsed JSON object
-  Output:
-  - detectResult: reconstructed detect result
-  ---------------------------------------------------------------------------------*/
-
-  importJSON(obj) {  
-    // 1. Validate input JSON
-    if (!obj || obj.type !== "ORB") throw new Error("Invalid features JSON");
-    
-    // 2. Extract properties
-    const { imageSize, keypoints, descriptors } = obj;
-    
-    // 3. Return the reconstructed detect result
-    return {
-      width: imageSize.width, // original image width
-      height: imageSize.height, // original image height
-      keypoints, 
-      descriptors: descriptors ? { 
-        rows: descriptors.rows,                  
-        cols: descriptors.cols,            
-        data: this._b64ToU8(descriptors.data_b64) // Uint8Array data
-      } : null // null if no descriptors
-    };
-  }
-  
   /* MATCH KEYPOINTS FROM SOURCE <-> TARGET IMAGE
-  ---------------------------------------------------------------------------------
-  Match ORB features from source JSON to target image Mat using KNN + ratio test
+  _______________________________________________________________________________ */
 
-  Input:
-  - sourceJson: JSON data with ORB keypoints/descriptors and original image size  
-  - targetMat: cv.Mat of target image (RGBA)
-  - opts: matching options { ratio, ransacReprojThreshold }
-  
-  Output:
-  - { matches, homography, numInliers, inlierMask } 
-  ---------------------------------------------------------------------------------*/
-  
-  matchToTarget(sourceJson, targetMat, opts = {}) {  
-    // 1. Access OpenCV.js
-    const cv = this.cv; 
+  matchFeatures(orbDataA, orbDataB, opts = {}) {  
 
-    // 2. Set matching parameters (set in UI, else defaults)
-    const ratio = opts.ratio ?? 0.75;
-    const ransacThresh = opts.ransacReprojThreshold ?? 3.0;
-
-    // 3. Validate source JSON descriptors
-    if (!sourceJson?.descriptors?.rows || !sourceJson?.descriptors?.cols) {
-      throw new Error('Invalid features JSON: missing descriptors');
+    console.log('imgA Keypoints: ', orbDataA.keypoints);
+    console.log('imgB Keypoints: ', orbDataB.keypoints);
+    console.log('A descriptors:', orbDataA.descriptors.rows, orbDataA.descriptors.cols, orbDataA.descriptors.data.length);
+    console.log('B descriptors:', orbDataB.descriptors.rows, orbDataB.descriptors.cols, orbDataB.descriptors.data.length);
+    
+    if (!orbDataA?.descriptors?.rows || !orbDataA?.descriptors?.cols) {
+      throw new Error('No source descriptors');
     }
 
-    // Reconstruct source descriptors Mat
-    const srcU8 = sourceJson.descriptors.data 
-      // from existing data (Uint8Array)          
-      ? new Uint8Array(sourceJson.descriptors.data)
-      // or decode from base64      
-      : this._b64ToU8(sourceJson.descriptors.data_b64); 
+    if (!orbDataB?.descriptors?.rows || !orbDataB?.descriptors?.cols) {
+        throw new Error('No target descriptors');
+    }
+    
+    const cv = this.cv; 
 
-    // 5. Create cv.Mat for source descriptors
-    const srcDesc = cv.matFromArray(
-      sourceJson.descriptors.rows, 
-      sourceJson.descriptors.cols, 
+    const ratio        = opts.ratio ?? 0.75;
+    const ransacThresh = opts.ransacReprojThreshold ?? 3.0;
+    
+    const targetDescriptorMat = cv.matFromArray(
+      orbDataB.descriptors.rows,
+      orbDataB.descriptors.cols,
+      cv.CV_8U,
+      orbDataB.descriptors.data
+    );
+
+    // Reconstruct source descriptors Mat
+    const srcU8 = new Uint8Array(orbDataA.descriptors.data);
+    // Create cv.Mat for source descriptors
+    const sourceDescriptorMat = cv.matFromArray(
+      orbDataA.descriptors.rows, 
+      orbDataA.descriptors.cols, 
       cv.CV_8U,  // type (unsigned 8-bit)
       srcU8 // data buffer (Uint8Array)
     );
 
-    // 6. Convert target image to grayscale
-    const gray = new cv.Mat(); // Grayscale Mat
-    cv.cvtColor (  // Convert target to grayscale
-      targetMat, 
-      gray, 
-      cv.COLOR_RGBA2GRAY 
-    );
-
-    // 7. Set up ORB detector
-    const orb     = new cv.ORB(this._nfeatures || 1200); // ORB detector
-    const targetKeypoints   = new cv.KeyPointVector(); 
-    const targetDescriptors = new cv.Mat(); 
-    const empty   = new cv.Mat(); // Empty mask
-    
-    // 8. Detect and compute on target image
-    orb.detectAndCompute(gray, empty, targetKeypoints, targetDescriptors, false);
-
-    // 9. KNN match (k=2) + ratio test
-    const bf = new cv.BFMatcher( // Brute-Force matcher
+    const bruteForceMatcher = new cv.BFMatcher( // Brute-Force matcher
       cv.NORM_HAMMING, // Hamming distance
       false // crossCheck disabled        
     ); 
     const knn = new cv.DMatchVectorVector(); // Init KNN matches
-    bf.knnMatch(srcDesc, targetDescriptors, knn, 2); // Match descriptors
+    bruteForceMatcher.knnMatch(sourceDescriptorMat, targetDescriptorMat, knn, 2); // Match descriptors
 
-    // 10. Initialize array for good matches
     const good = [];
 
-    // 11. Iterate through KNN matches and apply ratio test
     for (let i = 0; i < knn.size(); i++) {
-      const vec = knn.get(i); // DMatchVector (needs delete)
+      const vec = knn.get(i); 
       
-      // If there are at least 2 matches
       if (vec.size() >= 2) {  
-        const m = vec.get(0); // get first (best) match  
-        const n = vec.get(1); // get second match
+        const m = vec.get(0); 
+        const n = vec.get(1); 
         
-        // If the the distance is withing the ratio threshold
-        // push to good matches
         if (m.distance < ratio * n.distance) good.push(m);
       }
-      vec.delete(); // cleanup DMatchVector
+      vec.delete(); 
     }
-    knn.delete(); // cleanup KNN matches
+    knn.delete();
 
-    // 12. Estimate homography using RANSAC if enough good matches
     let homographyMatrix = null; 
     let inliers          = 0; 
     let inlierMask       = null; 
 
-    // 13. If at least 4 good matches, compute homography
-    if (good.length >= 4) {
-      
+    if (good.length >= 4) {    
       // Prepare array for source points
       const srcPts = new cv.Mat(
-        good.length, // number of good matches
-        1, // single column
-        cv.CV_32FC2 // 2-channel float32
+        good.length, 
+        1, 
+        cv.CV_32FC2 
       );
 
       // Prepare array for destination points
       const dstPts = new cv.Mat(
-        good.length, // number of good matches
-        1, // single column
-        cv.CV_32FC2 // 2-channel float32
+        good.length, 
+        1, 
+        cv.CV_32FC2 
       );
-
-      // Fill point arrays based on good matches
-      const srcW = sourceJson.imageSize?.width  ?? targetMat.cols;
-      const srcH = sourceJson.imageSize?.height ?? targetMat.rows;
 
       for (let i = 0; i < good.length; i++) {
         const m  = good[i]; // current match
-        const sN = sourceJson.keypoints[m.queryIdx]; // normalized src KP
-        const t  = targetKeypoints.get(m.trainIdx).pt; // target KP point
-
-        // de-normalize to pixel coords on source image A
-        const sx = sN.x * srcW; 
-        const sy = sN.y * srcH; 
+        const s = orbDataA.keypoints[m.queryIdx]; // normalized src KP
+        const t  = orbDataB.keypoints[m.trainIdx]; // target KP point
  
         // Set coordinates for ith point in source and destination Mats
-        srcPts.data32F[i*2]   = sx; // source x
-        srcPts.data32F[i*2+1] = sy; // source y
+        srcPts.data32F[i*2]   = s.x; // source x
+        srcPts.data32F[i*2+1] = s.y; // source y
         dstPts.data32F[i*2]   = t.x; // destination x
         dstPts.data32F[i*2+1] = t.y; // destination y
       }
@@ -307,19 +228,11 @@ export class ORBModule {
       Hmat.delete(); // homography Mat
     }
 
-    // 14. Cache target KPs for drawMatches
-    const targetKeypoints_JS = this._serializeKeypoints(targetKeypoints);
-    this._lastDetB = { keypoints: targetKeypoints_JS };
+    bruteForceMatcher.delete(); // brute force matcher
+    sourceDescriptorMat.delete(); 
+    targetDescriptorMat.delete(); 
 
-    // 15. Cleanup
-    gray.delete(); // grayscale image
-    empty.delete(); // empty mask
-    targetDescriptors.delete(); // target descriptors
-    targetKeypoints.delete(); // target keypoints
-    orb.delete(); // ORB detector
-    bf.delete(); // brute force matcher
-    srcDesc.delete(); // source descriptors
-
+    console.log('good matches: ', good.length);
     // 16. Return match results
     return { 
       matches: good, // array of good matches
@@ -383,18 +296,20 @@ export class ORBModule {
   - imgB: second image (cv.Mat)
   - keypointsA: keypoints from image A (array)
   - keypointsB: keypoints from image B (array)
-  - matchRes: result from matchToTarget (matches, inlierMask)
+  - matchRes: result from matchFeatures (matches, inlierMask)
   - originalSizeA: original size of image A {width, height} for denormalization 
   ---------------------------------------------------------------------------------*/
-  drawMatches(imgA, imgB, keypointsA, keypointsB, matchRes) {   
+  drawMatches(imgA, imgB, keypointsA, keypointsB, matchRes) {      
     const cv   = this.cv; // OpenCV.js
-    const outH = Math.max(imgA.rows, imgB.rows); // Output height
-    const outW = imgA.cols + imgB.cols; // Output width
-    
-    this._releaseLastCanvasMat(); // Release previous if any
+
+    const matrixA = matFromImageEl(imgA);
+    const matrixB = matFromImageEl(imgB);
+
+    const outH = Math.max(matrixA.rows, matrixB.rows); // Output height
+    const outW = matrixA.cols + matrixB.cols; // Output width
     
     // Create new output Mat
-    this._lastCanvasMat = new cv.Mat(
+    const drawnMatches = new cv.Mat(
       outH, // output height     
       outW, // output width
       cv.CV_8UC4, // type
@@ -402,27 +317,27 @@ export class ORBModule {
     );
 
     // Region of Interest (ROI) for image A
-    const roiA = this._lastCanvasMat.roi(
+    const roiA = drawnMatches.roi(
       new cv.Rect(
         0, // init x (left)
         0, // init y (top)
-        imgA.cols, // width
-        imgA.rows // height
+        matrixA.cols, // width
+        matrixA.rows // height
       )
     );
-    imgA.copyTo(roiA); // copy image A into ROI
+    matrixA.copyTo(roiA); // copy image A into ROI
     roiA.delete(); // release ROI
 
     // ROI for image B
-    const roiB = this._lastCanvasMat.roi(
+    const roiB = drawnMatches.roi(
       new cv.Rect(
-        imgA.cols, // init x (after image A)
+        matrixA.cols, // init x (after image A)
         0, // init y (top)
-        imgB.cols, // width
-        imgB.rows // height
+        matrixB.cols, // width
+        matrixB.rows // height
       )
     );
-    imgB.copyTo(roiB); // copy image B into ROI
+    matrixB.copyTo(roiB); // copy image B into ROI
     roiB.delete(); // release ROI
     
     // Determine inlier mask
@@ -440,44 +355,47 @@ export class ORBModule {
       // Determine if inlier
       const inlier = inMask ? Boolean(inMask[i]) : true;
       
-      // Determine color (green for inlier, red for outlier)
-      const color = inlier ? new cv.Scalar(0,255,0,255) : new cv.Scalar(255,0,0,255);
+      const GREEN = new cv.Scalar(0, 255, 0, 255);
+      const RED   = new cv.Scalar(255, 0, 0, 255);
 
-      // Denormalize keypointsA (from normalized [0,1] to pixel coordinates)
-      // Use originalSizeA for denormalization
-      const a = new cv.Point(
-        Math.round(p1.x * imgA.cols),
-        Math.round(p1.y * imgA.rows)
+      const color = inlier ? GREEN : RED;
+
+      const pointA = new cv.Point(
+        Math.round(p1.x * matrixA.cols),
+        Math.round(p1.y * matrixA.rows)
       );
 
-      // keypointsB are already in pixel coordinates
-      const b = new cv.Point(
-        Math.round(p2.x + imgA.cols), // x coordinate (offset by image A width)
-        Math.round(p2.y) // y coordinate
+      const pointB = new cv.Point(
+        Math.round(p2.x + matrixA.cols), 
+        Math.round(p2.y)
       );
+
+      cv.line(drawnMatches, pointA, pointB, color, 1, cv.LINE_AA);
+      cv.circle(drawnMatches, pointA, 3, color, -1, cv.LINE_AA);
+      cv.circle(drawnMatches, pointB, 3, color, -1, cv.LINE_AA);
+
+    }
+
+    matrixA.delete();
+    matrixB.delete();
+
+    return drawnMatches;
+  }
 
       /* DIAGRAM FOR OUTPUT IMAGE LAYOUT
       ------------------------------------------------------------------------------ 
 
-            {   imgA.cols       }{         imgB.cols      }
+            {   matrixA.cols   } {         matrixB.cols    }
       (0,0) -----------------------------------------------
             |                  >|                        >|<
             |                >  |                      >  |  <
-            |    imgA.rows -->  |          imgB.rows -->  |  <-- outH
+            | matrixA.rows -->  |       matrixB.rows -->  |  <-- outH
             |                  >|                      >  |  <
     empty   --------------------|                        >|<
     space ->////////////////////---------------------------
             {                   outW                      }
 
       ------------------------------------------------------------------------------ */
-
-      // Draw line between matched keypoints
-      cv.line(this._lastCanvasMat, a, b, color, 1, cv.LINE_AA);
-      // Draw circles at keypoints
-      cv.circle(this._lastCanvasMat, a, 3, color, -1, cv.LINE_AA);
-      cv.circle(this._lastCanvasMat, b, 3, color, -1, cv.LINE_AA);
-    }
-  }
 
   /*________________________________________________________________________________
                            INTERNAL METHODS
@@ -576,15 +494,4 @@ export class ORBModule {
     return u8;
   }
 
-  /* RELEASE LAST CACHED CANVAS MAT
-  ----------------------------------------------------------------------------------
-  Release the last cached canvas Mat used for drawing matches 
-  ----------------------------------------------------------------------------------*/
-  _releaseLastCanvasMat(){
-    // If there is a cached Mat
-    if (this._lastCanvasMat) { 
-      this._lastCanvasMat.delete(); // delete it
-      this._lastCanvasMat=null; // clear reference
-    } 
-  }
 }

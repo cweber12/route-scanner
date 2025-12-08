@@ -46,8 +46,8 @@ const showOrbBtn  = el('showOrb'); // Show ORB button to switch to ORB mode
 const intervalInput = el('intervalInput'); // Input for frame interval
 
 // ORB detection stats 
-const statsA = el('statsA'); // Stats display for Image A
-const statsB = el('statsB'); // Stats display for Image B
+const statsDetect = el('statsDetect'); // Stats display for Image A
+const statsMatch = el('statsMatch'); // Stats display for Image B
 
 // ORB parameters elements
 const nfeatures     = el('nfeatures'); // Number of features to detect
@@ -97,7 +97,6 @@ const cv = window.cv; // attach OpenCV.js API
 
 let orbModule; 
 let orbDetectionParameters = {};
-let orbMatchParameters     = {}; 
 
 let landmarkImages   = [];
 let landmarkFrameIdx = 0;
@@ -152,94 +151,12 @@ function refreshButtons() {
     btnDetect.disabled = !(cvReady && imgAReady); 
     btnMatch.disabled  = !(cvReady && imgBReady && haveFeatures()); 
 }
-/*------------------------------------------------------------------------------------
-MATCH ORB FEATURES
-Match ORB features from source to target image and display matches */
-
-function matchOrbFeatures(
-    source, 
-    target, 
-) {
-    let matchResult = null;  
-    const matchOptions = {
-        useKnn: true,
-        ratio: Number(ratio.value) || 0.75,
-        ransacReprojThreshold: Number(ransac.value) || 3.0
-    };
-    
-    try {
-        matchResult = orbModule.matchToTarget(
-            source,
-            target,                                
-            matchOptions
-        );
-
-        // Update stats for image B
-        statsB.textContent =
-            `matches: ${matchResult.matches.length}\n` +
-            `inliers: ${matchResult.numInliers ?? 0}\n`;
-            
-
-        // Check if keypoints and matches are valid arrays
-        if (!Array.isArray(matchResult.matches)) {
-            alert('No keypoints or matches found. Check your crop area and images.');
-            return;
-        }
-    
-    // Catch any errors during matching
-    } catch (e) {
-        console.error('Match error', e);
-        alert('Match failed. See console.');
-    // Cleanup
-    } finally {
-        target.delete(); // release Mat
-        refreshButtons(); // refresh buttons
-        return matchResult; // return match results
-    }
-}
-
-function drawMatches(keypointsA, keypointsB, matchResult) {
-    try {
-        if (!matchResult || !matchResult.matches || matchResult.matches.length === 0) {
-            throw new Error('No matches to draw.');
-        }
-        
-        const A = matFromImageEl(imgA);
-        const B = matFromImageEl(imgB);
-        
-        // Draw matches on full images using offset keypoints
-        orbModule.drawMatches(
-            A, // full image A
-            B, // full image B
-            keypointsA, 
-            keypointsB, 
-            matchResult, 
-        );
-
-        // Display matches on canvas
-        imshowCompat(
-            canvasMatches, // canvas to draw on
-            orbModule._lastCanvasMat // get last drawn matches Mat
-        );
-
-        cropBoxB.cropBoxEl.style.display = 'none'; // hide crop box B
-        canvasMatches.hidden = false;    // show matches canvas
-        
-        // Clean up
-        A.delete();
-        B.delete();
-        orbModule._releaseLastCanvasMat();
-    } catch (e) {
-        console.error('Error drawing matches', e);
-        alert('Drawing matches failed. See console.');
-    }
-}
 
 /*------------------------------------------------------------------------------------
 COMPUTE TRANSFORMATION MATRIX
 Calculate the transformation matrix using matched keypoints */
 
-function computeTransformationMatrix(matchResult, keypointsA, keypointsB, source) {
+function computeTransformationMatrix(matchResult, keypointsA, keypointsB) {
     let transformationMatrix = null; // init transformation matrix
     try {
         if (!matchResult.matches || matchResult.matches.length < 4) {
@@ -250,7 +167,6 @@ function computeTransformationMatrix(matchResult, keypointsA, keypointsB, source
             matchResult.matches,
             keypointsA,
             keypointsB,
-            source.imageSize
         );
 
         if (!srcMatches || !dstMatches) {
@@ -288,7 +204,7 @@ function computeTransformationMatrix(matchResult, keypointsA, keypointsB, source
 APPLY TRANSFORMATION MATRIX
 Apply the transformation matrix to pose landmarks in all frames */
 
-function applyTransformationMatrix(transformationMatrix, allTransformedFrames) {
+function applyTransformationMatrix(transformationMatrix, transformedPoses) {
     try {
         const poseTransformer = new PoseTransform(window.cv);
         const poseLandmarksAllFrames = getShared('poseA'); // Array of arrays (frames)
@@ -302,11 +218,11 @@ function applyTransformationMatrix(transformationMatrix, allTransformedFrames) {
                 transformationMatrix,
                 'homography'
             );
-            allTransformedFrames.push(transformed);
+            transformedPoses.push(transformed);
         }
 
-        console.log('All Transformed Pose Landmarks:', allTransformedFrames);
-        setShared('transformedPoseLandmarks', allTransformedFrames);
+        console.log('All Transformed Pose Landmarks:', transformedPoses);
+        setShared('transformedPoseLandmarks', transformedPoses);
     } catch (e) {
         console.error('Landmark transformation error', e);
         alert('Landmark transformation failed. See console.');
@@ -318,11 +234,11 @@ function applyTransformationMatrix(transformationMatrix, allTransformedFrames) {
 DRAW TRANSFORMED LANDMARKS
 Draw transformed landmarks on image B and store the results */
 
-function drawTransformedLandmarks(allTransformedFrames, imgB) {
+function drawTransformedLandmarks(transformedPoses, imgB) {
     let drawnImages = [];
     try {
-        for (let i = 0; i < allTransformedFrames.length; i++) {
-            const landmarks = allTransformedFrames[i];
+        for (let i = 0; i < transformedPoses.length; i++) {
+            const landmarks = transformedPoses[i];
             if (!landmarks || landmarks.length === 0) continue;
             // Create a new canvas for each frame
             const tempCanvas = document.createElement('canvas');
@@ -421,7 +337,7 @@ fileB.addEventListener('change', async () => {
         matchSection.hidden       = false; // show match section
         showMatch.hidden          = false; // show match section details
         imgBReady                 = true; // set imgBReady flag
-        statsB.textContent        = ''; // clear prev stats B
+        statsMatch.textContent    = ''; // clear prev stats B
         canvasMatches.hidden      = true; // hide prev matches canvas
     
     } catch (e) { // catch load errors
@@ -493,7 +409,7 @@ btnDetect.addEventListener('click', () => {
         // NOTE: descriptors stay exactly as baseJson.descriptors (with data_b64)
         
         // Update detection stats display
-        statsA.textContent =
+        statsDetect.textContent =
             `A: ${detectResult.width}x${detectResult.height}\n` +
             `keypoints: ${detectResult.keypoints.length}\n` +
             `descriptors: ${detectResult.descriptors?.rows ?? 0} x ${detectResult.descriptors?.cols ?? 0}`;
@@ -529,68 +445,95 @@ btnDetect.addEventListener('click', () => {
 });
 
 
-/*--------------------------------------------------------------------------- 
-ON "MATCH" BUTTON CLICK 
-- Match features from loaded JSON or detected features on image A to
-  features detected on cropped image B 
-- Compute homography from matches to generate transform
-- Apply transform to pose landmarks. */
-
 btnMatch.addEventListener('click', () => {
     
-    if (!cvReady || !imgBReady) return; // If not ready, exit
-    if (!detectResult) { // No features available
+    if (!cvReady || !imgBReady) return; 
+    if (!detectResult) { 
         alert('Load features.json or run Detect on Image A first.');
         return;
     }
 
-    // Crop image B according to crop box and convert to Mat
-    const cropRectB      = cropBoxB.getCropRect();
-    const croppedCanvasB = cropBoxB.cropImage();;
-    const target         = matFromImageEl(croppedCanvasB);    
+    // Crop selected region and convert to OpenCV Mat for ORB detection
+    const croppedRegionB = cropBoxB.cropImage();
+    const target         = matFromImageEl(croppedRegionB);    
 
     // Detect features on image B using same orbDetectionParameters as image A
     const detectResultB = orbModule.detectORB(target, orbDetectionParameters);
-    // Offset keypoints to match their position on the full image B
-    const keypointsB = detectResultB.keypoints.map(kp => ({
-        ...kp, 
-        x: kp.x + cropRectB.x, 
-        y: kp.y + cropRectB.y 
-    }));
+    const cropRectB  = cropBoxB.getCropRect();
+    // For B (target)
+    const orbDataB = {
+        ...detectResultB, 
+        keypoints: detectResultB.keypoints.map(kp => ({
+            ...kp,
+            x: kp.x + cropRectB.x,
+            y: kp.y + cropRectB.y
+        }))
+    };
 
-    // Prepare source features from loaded JSON or detected result
-    const source = sourceJson || mod.exportJSON(detectResult);
-    // Denormalize keypointsA to pixel coordinates
-    const keypointsA = source.keypoints.map(kp => ({
-        ...kp,
-        x: kp.x * source.imageSize.width,
-        y: kp.y * source.imageSize.height
-    }));
+    // For A (source)
+    const orbDataA = {
+        ...sourceJson,
+        keypoints: sourceJson.keypoints.map(kp => ({
+            ...kp,
+            x: kp.x * sourceJson.imageSize.width,
+            y: kp.y * sourceJson.imageSize.height
+        })),
+        descriptors: {
+            ...sourceJson.descriptors,
+            data: sourceJson.descriptors.data
+                ? new Uint8Array(sourceJson.descriptors.data)
+                : orbModule._b64ToU8(sourceJson.descriptors.data_b64)
+        }
+    };
     
+    /* MATCH ORB FEATURES: 
+       Match features from source (image A) to target (image B) and display.
+    _________________________________________________________________________*/
+        
+    const matchOptions = {
+        useKnn: true,
+        ratio: Number(ratio.value) || 0.75,
+        ransacReprojThreshold: Number(ransac.value) || 3.0
+    };
     
-    let matchResult = matchOrbFeatures(source, target); 
-
-    drawMatches( keypointsA, keypointsB, matchResult );
-
-    let transformationMatrix = computeTransformationMatrix(
-        matchResult,
-        keypointsA, 
-        keypointsB, 
-        source
+    const matchResult = orbModule.matchFeatures(orbDataA, orbDataB, matchOptions); 
+    
+    const drawnMatches = orbModule.drawMatches(
+        imgA, 
+        imgB, 
+        orbDataA, 
+        orbDataB, 
+        matchResult, 
     );
 
-    const allTransformedFrames = [];
-    applyTransformationMatrix(transformationMatrix, allTransformedFrames);
+    imshowCompat(
+        canvasMatches, 
+        drawnMatches
+    );
 
-    const drawnImages = drawTransformedLandmarks(allTransformedFrames, imgB);
+    cropBoxB.cropBoxEl.style.display = 'none'; // hide crop box B
+    canvasMatches.hidden = false;    // show matches canvas
+
+    statsMatch.textContent =
+        `matches: ${matchResult.matches.length}\n` +
+        `inliers: ${matchResult.numInliers ?? 0}\n`;
+
+    /* TRANSFORM POSE LANDMARKS
+       Transfrom landmarks from image A to --> image B using matches
+    _________________________________________________________________________*/
+    
+    let transformationMatrix = computeTransformationMatrix(
+        matchResult,
+        orbDataA.keypoints, 
+        orbDataB.keypoints, 
+    );
+
+    const transformedPoses = [];
+    applyTransformationMatrix(transformationMatrix, transformedPoses);
+
+    const drawnImages = drawTransformedLandmarks(transformedPoses, imgB);
 
     displayLandmarkImages(drawnImages);
-
-    console.log('matchResult:', matchResult);
-    console.log('keypointsA:', keypointsA);
-    console.log('keypointsB:', keypointsB);
-    console.log('transformationMatrix:', transformationMatrix);
-    console.log('allTransformedFrames:', allTransformedFrames);
     
 });
 
@@ -621,7 +564,7 @@ showOrbBtn.addEventListener('click', async () => {
     orbSection.hidden  = false; // show ORB section
     imgAReady          = true; // set imgAReady flag
     detectResult       = null; // reset previous detection result
-    statsA.textContent = ''; // clear stats A
+    statsDetect.textContent = ''; // clear stats A
     canvasA.hidden     = true; // hide canvas A
 
     statusEl.textContent = '> Scroll down to "Detect Background Features"';

@@ -1,5 +1,5 @@
 // image_utils.js
-// Utilities for loading images and converting to cv.Mat 
+// Utilities for loading images and converting to cv.Mat
 
 //Internal temporary canvas for image to Mat conversion
 const __tmpCanvas = document.createElement('canvas');
@@ -131,7 +131,7 @@ Output:
 - [matchedSrc, matchedDst]: arrays of matched points from image A and B
   or null if not enough matches */
 
-export function matchesToArray(matches,   keypointsA, keypointsB, imageSizeA ) {
+export function matchesToArray(matches, keypointsA, keypointsB) {
     // Validate inputs
     if (!Array.isArray(matches) || !Array.isArray(keypointsA) || !Array.isArray(keypointsB)) {
         console.warn('Invalid arguments to computeTransformFromMatches');
