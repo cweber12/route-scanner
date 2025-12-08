@@ -126,7 +126,7 @@ if (window.cvIsReady || (window.cv && (window.cv.Mat || window.cv.getBuildInform
 }
 
 /*___________________________________________________________________________________
-                                 HELPERS 
+                                 HELPER FUNCTIONS 
   __________________________________________________________________________________*/ 
 
 /*------------------------------------------------------------------------------------
@@ -134,15 +134,13 @@ INIT ORB MODULE
 Initialize ORBModule when OpenCV.js is ready */
 
 function initOrbModule() {   
-    // Create ORBModule instance
     try {
-        orbModule = new ORBModule(window.cv); // create ORBModule instance
-        cvReady = true; // set cvReady flag         
+        orbModule = new ORBModule(window.cv); 
+        cvReady = true;        
     } catch (e) {
         console.error('cv init error', e);  
         cvReady = false;                    
     }   
-    // Refresh button states
     refreshButtons();
 }
 
@@ -155,8 +153,12 @@ function refreshButtons() {
     btnMatch.disabled  = !(cvReady && imgBReady && haveFeatures()); 
 }
 
+/*------------------------------------------------------------------------------------
+COMPUTE TRANSFORMATION MATRIX
+Calculate the transformation matrix using matched keypoints */
+
 function computeTransformationMatrix(matchResult, offsetKeypointsB, source) {
-    let transformMat = null; // init transformation matrix
+    let transformationMatrix = null; // init transformation matrix
     try {
         if (!matchResult.matches || matchResult.matches.length < 4) {
             throw new Error('Not enough matches to compute transform.');
@@ -180,25 +182,51 @@ function computeTransformationMatrix(matchResult, offsetKeypointsB, source) {
             console.log('Destination Matches:', dstMatches);
             // Compute transform
             const poseTransformer = new PoseTransform(window.cv);
-            transformMat =  poseTransformer.computeTransform(
+            transformationMatrix =  poseTransformer.computeTransform(
                 srcMatches,
                 dstMatches,
                 'homography'
             );
         }
     
-        if (!transformMat || transformMat.empty()) {
-            console.error('Homography computation failed: transformMat is empty.');
+        if (!transformationMatrix || transformationMatrix.empty()) {
+            console.error('Homography computation failed: transformationMatrix is empty.');
             return;
         }
-        console.log('Homography matrix data:', transformMat.data64F || transformMat.data32F);
+        console.log('Homography matrix data:', transformationMatrix.data64F || transformationMatrix.data32F);
      
     } catch (e) {
         console.error('Transform computation error', e);
         alert('Transform computation failed. See console.');
         return;
     } finally {
-        return transformMat; // return transformation matrix
+        return transformationMatrix; // return transformation matrix
+    }
+}
+
+function applyTransformationMatrix(transformationMatrix, allTransformedFrames) {
+    try {
+        const poseTransformer = new PoseTransform(window.cv);
+        const poseLandmarksAllFrames = getShared('poseA'); // Array of arrays (frames)
+
+        for (let i = 0; i < poseLandmarksAllFrames.length; i++) {
+            const frameLandmarks = poseLandmarksAllFrames[i];
+            if (!frameLandmarks || frameLandmarks.length === 0) continue; // skip empty frames
+
+            const transformed = poseTransformer.transformLandmarks(
+                frameLandmarks,
+                transformationMatrix,
+                'homography'
+            );
+            allTransformedFrames.push(transformed);
+        }
+
+        console.log('All Transformed Pose Landmarks:', allTransformedFrames);
+        setShared('transformedPoseLandmarks', allTransformedFrames);
+    } catch (e) {
+        console.error('Landmark transformation error', e);
+        alert('Landmark transformation failed. See console.');
+        return;
     }
 }
 
@@ -220,6 +248,10 @@ function interpolateFramesInWorker(frames, interval) {
         };
     });
 }
+
+/*------------------------------------------------------------------------------------
+SHOW LANDMARK FRAME
+Display a specific landmark frame by index */
 
 function showLandmarkFrame(idx) {
     if (!landmarkImages.length) return;
@@ -375,7 +407,6 @@ btnMatch.addEventListener('click', () => {
     const croppedCanvasB = cropBoxB.cropImage();;
     const target         = matFromImageEl(croppedCanvasB);    
     let matchResult      = null; // match result
-    const transformedAllFrames = []; //
     const drawnImages    = []; // images with drawn landmarks
 
     // Detect features on image B using same orbDetectionParameters as image A
@@ -458,42 +489,23 @@ btnMatch.addEventListener('click', () => {
     /*-----------------------------------------------------------------------
     Compute transform from matches */ 
 
-    let transformMat = computeTransformationMatrix(matchResult, offsetKeypointsB, source);
+    let transformationMatrix = computeTransformationMatrix(
+        matchResult, 
+        offsetKeypointsB, 
+        source
+    );
     
-
     /*-----------------------------------------------------------------------
     Apply transform to pose landmarks */ 
-    
-    try {
-        const poseTransformer = new PoseTransform(window.cv);
-        const poseLandmarksAllFrames = getShared('poseA'); // Array of arrays (frames)
-
-        for (let i = 0; i < poseLandmarksAllFrames.length; i++) {
-            const frameLandmarks = poseLandmarksAllFrames[i];
-            if (!frameLandmarks || frameLandmarks.length === 0) continue; // skip empty frames
-
-            const transformed = poseTransformer.transformLandmarks(
-                frameLandmarks,
-                transformMat,
-                'homography'
-            );
-            transformedAllFrames.push(transformed);
-        }
-
-        console.log('All Transformed Pose Landmarks:', transformedAllFrames);
-        setShared('transformedPoseLandmarks', transformedAllFrames);
-    } catch (e) {
-        console.error('Landmark transformation error', e);
-        alert('Landmark transformation failed. See console.');
-        return;
-    }
+    const allTransformedFrames = [];
+    applyTransformationMatrix(transformationMatrix, allTransformedFrames);
     
     /*-----------------------------------------------------------------------
     Draw transformed landmarks on copies of image B and store the images */
 
     try {
-        for (let i = 0; i < transformedAllFrames.length; i++) {
-            const landmarks = transformedAllFrames[i];
+        for (let i = 0; i < allTransformedFrames.length; i++) {
+            const landmarks = allTransformedFrames[i];
             if (!landmarks || landmarks.length === 0) continue;
 
             // Create a new canvas for each frame
@@ -515,8 +527,7 @@ btnMatch.addEventListener('click', () => {
     }
 
         
-    /*-----------------------------------------------------------------------
-        
+    /*-----------------------------------------------------------------------       
     Display images with drawn landmarks */
 
     try {
