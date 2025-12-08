@@ -73,7 +73,7 @@ export class PoseTransform {
   Output:
     - out: Array of transformed landmarks [{x, y}, ...] (pixel coordinates) */   
 
-  transformLandmarks(landmarks, srcSize, M, method = 'homography') {
+  transformLandmarks(landmarks, M, method = 'homography') {
     const cv = this.cv;
     const pts = [];
 

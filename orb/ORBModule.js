@@ -17,7 +17,7 @@ export class ORBModule {
   ---------------------------------------------------------------------------------
   Input:
   - srcRGBA: source image as cv.Mat in RGBA format
-  - opts: optional parameters for ORB detection
+  - opts: Parameters for ORB detection
   Output:
   - detectResult: object with keypoints, descriptors, width, height
   ---------------------------------------------------------------------------------*/
@@ -131,6 +131,7 @@ export class ORBModule {
   Output:
   - detectResult: reconstructed detect result
   ---------------------------------------------------------------------------------*/
+
   importJSON(obj) {  
     // 1. Validate input JSON
     if (!obj || obj.type !== "ORB") throw new Error("Invalid features JSON");
@@ -142,10 +143,10 @@ export class ORBModule {
     return {
       width: imageSize.width, // original image width
       height: imageSize.height, // original image height
-      keypoints, // keypoints (normalized)
-      descriptors: descriptors ? { // descriptors
-        rows: descriptors.rows, // number of rows                   
-        cols: descriptors.cols,// number of columns             
+      keypoints, 
+      descriptors: descriptors ? { 
+        rows: descriptors.rows,                  
+        cols: descriptors.cols,            
         data: this._b64ToU8(descriptors.data_b64) // Uint8Array data
       } : null // null if no descriptors
     };
@@ -156,13 +157,15 @@ export class ORBModule {
   Match ORB features from source JSON to target image Mat using KNN + ratio test
 
   Input:
-    - sourceJson: JSON data with ORB keypoints/descriptors and original image size  
-    - targetMat: cv.Mat of target image (RGBA)
-    - opts: matching options { ratio, ransacReprojThreshold }
+  - sourceJson: JSON data with ORB keypoints/descriptors and original image size  
+  - targetMat: cv.Mat of target image (RGBA)
+  - opts: matching options { ratio, ransacReprojThreshold }
+  
   Output:
-    - { matches, homography, numInliers, inlierMask } 
+  - { matches, homography, numInliers, inlierMask } 
   ---------------------------------------------------------------------------------*/
-  matchToTarget(sourceJson, targetMat, opts = {}) {  
+  
+    matchToTarget(sourceJson, targetMat, opts = {}) {  
     // 1. Access OpenCV.js
     const cv = this.cv; 
 
@@ -184,8 +187,8 @@ export class ORBModule {
 
     // 5. Create cv.Mat for source descriptors
     const srcDesc = cv.matFromArray(
-      sourceJson.descriptors.rows, // number of rows
-      sourceJson.descriptors.cols, // number of columns
+      sourceJson.descriptors.rows, 
+      sourceJson.descriptors.cols, 
       cv.CV_8U,  // type (unsigned 8-bit)
       srcU8 // data buffer (Uint8Array)
     );
@@ -200,12 +203,12 @@ export class ORBModule {
 
     // 7. Set up ORB detector
     const orb     = new cv.ORB(this._nfeatures || 1200); // ORB detector
-    const tgtKP   = new cv.KeyPointVector(); // Target keypoints
-    const tgtDesc = new cv.Mat(); // Target descriptors
+    const targetKeypoints   = new cv.KeyPointVector(); 
+    const targetDescriptors = new cv.Mat(); 
     const empty   = new cv.Mat(); // Empty mask
     
     // 8. Detect and compute on target image
-    orb.detectAndCompute(gray, empty, tgtKP, tgtDesc, false);
+    orb.detectAndCompute(gray, empty, targetKeypoints, targetDescriptors, false);
 
     // 9. KNN match (k=2) + ratio test
     const bf = new cv.BFMatcher( // Brute-Force matcher
@@ -213,7 +216,7 @@ export class ORBModule {
       false // crossCheck disabled        
     ); 
     const knn = new cv.DMatchVectorVector(); // Init KNN matches
-    bf.knnMatch(srcDesc, tgtDesc, knn, 2); // Match descriptors
+    bf.knnMatch(srcDesc, targetDescriptors, knn, 2); // Match descriptors
 
     // 10. Initialize array for good matches
     const good = [];
@@ -236,25 +239,25 @@ export class ORBModule {
     knn.delete(); // cleanup KNN matches
 
     // 12. Estimate homography using RANSAC if enough good matches
-    let H          = null; // Homography matrix
-    let inliers    = 0; // Number of inliers
-    let inlierMask = null; // Inlier mask array
+    let homographyMatrix = null; 
+    let inliers          = 0; 
+    let inlierMask       = null; 
 
     // 13. If at least 4 good matches, compute homography
     if (good.length >= 4) {
       
       // Prepare array for source points
       const srcPts = new cv.Mat(
-        good.length, // number of points
+        good.length, // number of good matches
         1, // single column
-        cv.CV_32FC2 // type (2-channel float32
+        cv.CV_32FC2 // 2-channel float32
       );
 
       // Prepare array for destination points
       const dstPts = new cv.Mat(
-        good.length, // number of points
+        good.length, // number of good matches
         1, // single column
-        cv.CV_32FC2 // type (2-channel float32
+        cv.CV_32FC2 // 2-channel float32
       );
 
       // Fill point arrays based on good matches
@@ -264,11 +267,11 @@ export class ORBModule {
       for (let i = 0; i < good.length; i++) {
         const m  = good[i]; // current match
         const sN = sourceJson.keypoints[m.queryIdx]; // normalized src KP
-        const t  = tgtKP.get(m.trainIdx).pt; // target KP point
+        const t  = targetKeypoints.get(m.trainIdx).pt; // target KP point
 
         // de-normalize to pixel coords on source image A
-        const sx = sN.x * srcW; // de-normalized x
-        const sy = sN.y * srcH; // de-normalized y
+        const sx = sN.x * srcW; 
+        const sy = sN.y * srcH; 
  
         // Set coordinates for ith point in source and destination Mats
         srcPts.data32F[i*2]   = sx; // source x
@@ -282,16 +285,16 @@ export class ORBModule {
 
       // Compute homography using RANSAC
       const Hmat = cv.findHomography(
-        srcPts, // source points
-        dstPts, // destination points
+        srcPts, 
+        dstPts,
         cv.RANSAC, // method (RANSAC)
-        ransacThresh, // RANSAC reprojection threshold
+        ransacThresh, 
         mask // output mask
       );
       // If homography is found, extract data
       if (!Hmat.empty()) {
         // Convert homography Mat to JS array
-        H = Array.from(Hmat.data64F ?? Hmat.data32F);
+        homographyMatrix = Array.from(Hmat.data64F ?? Hmat.data32F);
         // Count inliers from mask
         inliers = cv.countNonZero(mask);
         // Create inlier mask array (boolean)
@@ -305,14 +308,14 @@ export class ORBModule {
     }
 
     // 14. Cache target KPs for drawMatches
-    const tgtKP_JS = this._serializeKeypoints(tgtKP);
-    this._lastDetB = { keypoints: tgtKP_JS };
+    const targetKeypoints_JS = this._serializeKeypoints(targetKeypoints);
+    this._lastDetB = { keypoints: targetKeypoints_JS };
 
     // 15. Cleanup
     gray.delete(); // grayscale image
     empty.delete(); // empty mask
-    tgtDesc.delete(); // target descriptors
-    tgtKP.delete(); // target keypoints
+    targetDescriptors.delete(); // target descriptors
+    targetKeypoints.delete(); // target keypoints
     orb.delete(); // ORB detector
     bf.delete(); // brute force matcher
     srcDesc.delete(); // source descriptors
@@ -320,7 +323,7 @@ export class ORBModule {
     // 16. Return match results
     return { 
       matches: good, // array of good matches
-      homography: H, // homography array (or null)
+      homography: homographyMatrix, // homography array (or null)
       numInliers: inliers, // number of inliers
       inlierMask // inlier mask array (or null)
     };

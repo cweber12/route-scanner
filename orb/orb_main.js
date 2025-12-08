@@ -307,6 +307,7 @@ btnDetect.addEventListener('click', () => {
     }
 });
 
+
 /*--------------------------------------------------------------------------- 
 ON "MATCH" BUTTON CLICK 
 - Match features from loaded JSON or detected features on image A to
@@ -324,7 +325,11 @@ btnMatch.addEventListener('click', () => {
     // Crop image B according to crop box and convert to Mat
     const cropRectB      = cropBoxB.getCropRect();
     const croppedCanvasB = cropBoxB.cropImage();;
-    const target         = matFromImageEl(croppedCanvasB);
+    const target         = matFromImageEl(croppedCanvasB);    
+    let matchResult      = null; // match result
+    let transformMat     = null; // transformation matrix
+    const transformedAllFrames = []; //
+    const drawnImages    = []; // images with drawn landmarks
 
     // Detect features on image B using same orbDetectionParameters as image A
     const detectResultB = orbModule.detectORB(target, orbDetectionParameters);
@@ -341,7 +346,7 @@ btnMatch.addEventListener('click', () => {
     
     try {
         // Match features
-        const res = orbModule.matchToTarget(
+        matchResult = orbModule.matchToTarget(
             { ...source, keypoints: keypointsA }, // source features
             target,                               // target Mat (image B)   
             { useKnn: true, ratio: Number(ratio.value) || 0.75, ransacReprojThreshold: Number(ransac.value) || 3.0 }
@@ -350,12 +355,12 @@ btnMatch.addEventListener('click', () => {
         // Update stats for image B
         statsB.textContent =
             `B: ${target.cols}x${target.rows}\n` +
-            `matches: ${res.matches.length}\n` +
-            `inliers: ${res.numInliers ?? 0}\n` +
-            (res.homography ? `H: [${res.homography.map(v => v.toFixed(3)).join(', ')}]` : 'H: (none)');
+            `matches: ${matchResult.matches.length}\n` +
+            `inliers: ${matchResult.numInliers ?? 0}\n` +
+            (matchResult.homography ? `H: [${matchResult.homography.map(v => v.toFixed(3)).join(', ')}]` : 'H: (none)');
 
         // Check if keypoints and matches are valid arrays
-        if (!Array.isArray(keypointsA) || !Array.isArray(offsetKeypointsB) || !Array.isArray(res.matches)) {
+        if (!Array.isArray(keypointsA) || !Array.isArray(offsetKeypointsB) || !Array.isArray(matchResult.matches)) {
             alert('No keypoints or matches found. Check your crop area and images.');
             return;
         }
@@ -371,7 +376,7 @@ btnMatch.addEventListener('click', () => {
             B, // full image B
             keypointsA, // use full image A keypoints
             offsetKeypointsB, // use offset keypoints for full image B
-            res, // match result
+            matchResult, // match result
             source.imageSize // original image A size for correct scaling
         );
 
@@ -389,23 +394,32 @@ btnMatch.addEventListener('click', () => {
         B.delete();
         orbModule._releaseLastCanvasMat();
 
-        console.log('Match result:', res.matches);
+        console.log('Match result:', matchResult.matches);
         console.log('Offset Keypoints B:', offsetKeypointsB);
         console.log('Image Size:', source.imageSize);
+    
+    // Catch any errors during matching
+    } catch (e) {
+        console.error('Match error', e);
+        alert('Match failed. See console.');
+    // Cleanup
+    } finally {
+        target.delete(); // release Mat
+        refreshButtons(); // refresh buttons
+    }
         
-        
-        /*-----------------------------------------------------------------------
-        Compute transform from matches */ 
+    /*-----------------------------------------------------------------------
+    Compute transform from matches */ 
 
+    try {
+        if (!matchResult.matches || matchResult.matches.length < 4) {
+            throw new Error('Not enough matches to compute transform.');
+        }
         const kpA = getShared('orbA'); // get keypoints A from shared state
-        const imgSizeA = getShared('sizeA'); // Original image A size
-        let transformMat;
         console.log('Keypoints A:', kpA);
-        console.log('Image Size A:', imgSizeA);
-
 
         const [srcMatches, dstMatches] = matchesToArray(
-            res.matches,
+            matchResult.matches,
             kpA,
             offsetKeypointsB,
             source.imageSize
@@ -432,13 +446,19 @@ btnMatch.addEventListener('click', () => {
             return;
         }
         console.log('Homography matrix data:', transformMat.data64F || transformMat.data32F);
-                 
-        /*-----------------------------------------------------------------------
-        Apply transform to pose landmarks */ 
-       
+     
+    } catch (e) {
+        console.error('Transform computation error', e);
+        alert('Transform computation failed. See console.');
+        return;
+    }
+
+    /*-----------------------------------------------------------------------
+    Apply transform to pose landmarks */ 
+    
+    try {
         const poseTransformer = new PoseTransform(window.cv);
         const poseLandmarksAllFrames = getShared('poseA'); // Array of arrays (frames)
-        const transformedAllFrames = [];
 
         for (let i = 0; i < poseLandmarksAllFrames.length; i++) {
             const frameLandmarks = poseLandmarksAllFrames[i];
@@ -446,7 +466,6 @@ btnMatch.addEventListener('click', () => {
 
             const transformed = poseTransformer.transformLandmarks(
                 frameLandmarks,
-                imgSizeA,
                 transformMat,
                 'homography'
             );
@@ -455,53 +474,62 @@ btnMatch.addEventListener('click', () => {
 
         console.log('All Transformed Pose Landmarks:', transformedAllFrames);
         setShared('transformedPoseLandmarks', transformedAllFrames);
-
-        /*-----------------------------------------------------------------------
-        Display images with drawn landmarks */
-
-        /*-----------------------------------------------------------------------
-        Interpolate between processed frames to fill in missing frames */
-
-        const interval = Number(intervalInput.value) || 1;
-
-        interpolateFramesInWorker(transformedAllFrames, interval)
-            .then(interpolatedFrames => {
-                const drawnImages = [];
-                for (let i = 0; i < interpolatedFrames.length; i++) {
-                    const landmarks = interpolatedFrames[i];
-                    if (!landmarks || landmarks.length === 0) continue;
-                    const tempCanvas = document.createElement('canvas');
-                    drawLandmarksOnImage(tempCanvas, imgB, landmarks, 'lime');
-                    drawnImages.push(tempCanvas.toDataURL());
-                }
-
-                setShared('landmarkImagesOnB', drawnImages);
-
-                landmarkImages = drawnImages;
-                if (landmarkImages.length > 0) {
-                    landmarkNav.hidden = false;
-                    showLandmarkFrame(0);
-                    frameImg.style.display = '';
-                } else {
-                    landmarkNav.hidden = true;
-                    frameImg.style.display = 'none';
-                }
-            })
-            .catch(err => {
-                console.error('Interpolation worker error:', err);
-                alert('Interpolation failed.');
-            });
-
-
-    // Catch any errors during matching
     } catch (e) {
-        console.error('Match error', e);
-        alert('Match failed. See console.');
-    // Cleanup
-    } finally {
-        target.delete();
-        showMatch.hidden = true; 
-        refreshButtons();
+        console.error('Landmark transformation error', e);
+        alert('Landmark transformation failed. See console.');
+        return;
+    }
+    
+    /*-----------------------------------------------------------------------
+    Draw transformed landmarks on copies of image B and store the images */
+
+    try {
+        for (let i = 0; i < transformedAllFrames.length; i++) {
+            const landmarks = transformedAllFrames[i];
+            if (!landmarks || landmarks.length === 0) continue;
+
+            // Create a new canvas for each frame
+            const tempCanvas = document.createElement('canvas');
+            // Draw landmarks on a copy of image B
+            drawLandmarksOnImage(tempCanvas, imgB, landmarks, 'lime');
+            // Store the image as a data URL
+            drawnImages.push(tempCanvas.toDataURL());
+        }
+
+        // Optionally, store in shared state for later use
+        setShared('landmarkImagesOnB', drawnImages);
+
+        console.log('Drawn images with landmarks:', drawnImages);
+    } catch (e) {
+        console.error('Drawing landmarks error', e);
+        alert('Drawing landmarks failed. See console.');
+        return;
+    }
+
+        
+    /*-----------------------------------------------------------------------
+        
+    Display images with drawn landmarks */
+
+    try {
+
+        prevBtn.addEventListener('click', () => showLandmarkFrame(landmarkFrameIdx - 1));
+        nextBtn.addEventListener('click', () => showLandmarkFrame(landmarkFrameIdx + 1));
+
+        // After you generate drawnImages:
+        landmarkImages = drawnImages;
+        if (landmarkImages.length > 0) {
+            landmarkNav.hidden = false;
+            showLandmarkFrame(0);
+            frameImg.style.display = '';
+        } else {
+            landmarkNav.hidden = true;
+            frameImg.style.display = 'none';
+        }
+    } catch (e) {
+        console.error('Displaying landmarks error', e);
+        alert('Displaying landmarks failed. See console.');
+        return;
     }
 });
 
@@ -521,8 +549,8 @@ showOrbBtn.addEventListener('click', async () => {
         return;
     }
     
-    const res = await fetch(dataUrl); // Fetch the data URL
-    const blob = await res.blob(); // Convert to Blob
+    const firstFrame = await fetch(dataUrl); // Fetch the data URL
+    const blob = await firstFrame.blob(); // Convert to Blob
     
     // Create a File object 
     const file = new File([blob], 'first_frame.png', { type: blob.type });

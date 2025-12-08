@@ -1,15 +1,6 @@
 // image_utils.js
 // Utilities for loading images and converting to cv.Mat 
 
-/*____________________________________________________________________________
-UTILITY FUNCTIONS 
-
-loadImg: Load an image file into an HTMLImageElement
-matFromImageEl: Convert an HTMLImageElement to cv.Mat (CV_8UC4)
-imshowCompat: Display a cv.Mat on a canvas, compatible with builds without cv.imshow
-matchesToArray: Convert matches and keypoints to arrays of matched points
-____________________________________________________________________________*/
-
 //Internal temporary canvas for image to Mat conversion
 const __tmpCanvas = document.createElement('canvas');
 const __tmpCtx = __tmpCanvas.getContext('2d', { willReadFrequently: true }); /*
@@ -19,9 +10,10 @@ const __tmpCtx = __tmpCanvas.getContext('2d', { willReadFrequently: true }); /*
 Load an uploaded image file into an HTMLImageElement for display and processing.
 
 Input:
-- file: input File object (from file input)
+- file: Input File object (from file input)
 - imgEl: HTMLImageElement to load the image into
-- cropBox: crop box HTML element to initialize
+- cropBox: Crop box HTML element to initialize
+
 Output:
 - Promise that resolves when image is loaded and crop box initialized */
 
@@ -48,6 +40,7 @@ Convert an HTMLImageElement to cv.Mat (CV_8UC4) for OpenCV processing.
 
 Input:
 - imgEl: HTMLImageElement uploaded in UI
+
 Output:
 - cv.Mat in CV_8UC4 format */
 
@@ -133,11 +126,12 @@ Input:
 - keypointsA: array of keypoints from image A (normalized coordinates)
 - keypointsB: array of keypoints from image B (pixel coordinates)
 - imageSizeA: size of image A {width, height} for denormalization
+
 Output:
 - [matchedSrc, matchedDst]: arrays of matched points from image A and B
   or null if not enough matches */
 
-export function matchesToArray(matches, keypointsA, keypointsB, imageSizeA) {
+export function matchesToArray(matches,   keypointsA, keypointsB, imageSizeA ) {
     // Validate inputs
     if (!Array.isArray(matches) || !Array.isArray(keypointsA) || !Array.isArray(keypointsB)) {
         console.warn('Invalid arguments to computeTransformFromMatches');
