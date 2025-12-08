@@ -165,7 +165,7 @@ export class ORBModule {
   - { matches, homography, numInliers, inlierMask } 
   ---------------------------------------------------------------------------------*/
   
-    matchToTarget(sourceJson, targetMat, opts = {}) {  
+  matchToTarget(sourceJson, targetMat, opts = {}) {  
     // 1. Access OpenCV.js
     const cv = this.cv; 
 
@@ -386,7 +386,7 @@ export class ORBModule {
   - matchRes: result from matchToTarget (matches, inlierMask)
   - originalSizeA: original size of image A {width, height} for denormalization 
   ---------------------------------------------------------------------------------*/
-  drawMatches(imgA, imgB, keypointsA, keypointsB, matchRes, originalSizeA) {   
+  drawMatches(imgA, imgB, keypointsA, keypointsB, matchRes) {   
     const cv   = this.cv; // OpenCV.js
     const outH = Math.max(imgA.rows, imgB.rows); // Output height
     const outW = imgA.cols + imgB.cols; // Output width
