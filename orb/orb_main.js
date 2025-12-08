@@ -493,7 +493,7 @@ btnMatch.addEventListener('click', () => {
     const matchOptions = {
         useKnn: true,
         ratio: Number(ratio.value) || 0.75,
-        ransacReprojThreshold: Number(ransac.value) || 3.0
+        ransacThresh: Number(ransac.value) || 3.0
     };
     
     const matchResult = orbModule.matchFeatures(orbDataA, orbDataB, matchOptions); 

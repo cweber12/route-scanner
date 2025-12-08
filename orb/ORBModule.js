@@ -107,64 +107,54 @@ export class ORBModule {
 
     return json;
   }
-
+  
   /* MATCH KEYPOINTS FROM SOURCE <-> TARGET IMAGE
   _______________________________________________________________________________ */
 
-  matchFeatures(orbDataA, orbDataB, opts = {}) {  
-
-    console.log('imgA Keypoints: ', orbDataA.keypoints);
-    console.log('imgB Keypoints: ', orbDataB.keypoints);
-    console.log('A descriptors:', orbDataA.descriptors.rows, orbDataA.descriptors.cols, orbDataA.descriptors.data.length);
-    console.log('B descriptors:', orbDataB.descriptors.rows, orbDataB.descriptors.cols, orbDataB.descriptors.data.length);
+  matchFeatures(source, target, opts = {}) {  
     
-    if (!orbDataA?.descriptors?.rows || !orbDataA?.descriptors?.cols) {
+    // Validate input ORB data
+    if (!source?.descriptors?.rows || !source?.descriptors?.cols) {
       throw new Error('No source descriptors');
     }
-
-    if (!orbDataB?.descriptors?.rows || !orbDataB?.descriptors?.cols) {
+    if (!target?.descriptors?.rows || !target?.descriptors?.cols) {
         throw new Error('No target descriptors');
     }
     
+    // Extract OpenCV.js instance
     const cv = this.cv; 
 
-    const ratio        = opts.ratio ?? 0.75;
-    const ransacThresh = opts.ransacReprojThreshold ?? 3.0;
-    
-    const targetDescriptorMat = cv.matFromArray(
-      orbDataB.descriptors.rows,
-      orbDataB.descriptors.cols,
-      cv.CV_8U,
-      orbDataB.descriptors.data
-    );
-
-    // Reconstruct source descriptors Mat
-    const srcU8 = new Uint8Array(orbDataA.descriptors.data);
-    // Create cv.Mat for source descriptors
     const sourceDescriptorMat = cv.matFromArray(
-      orbDataA.descriptors.rows, 
-      orbDataA.descriptors.cols, 
-      cv.CV_8U,  // type (unsigned 8-bit)
-      srcU8 // data buffer (Uint8Array)
+      source.descriptors.rows, 
+      source.descriptors.cols, 
+      cv.CV_8U,  
+      new Uint8Array(source.descriptors.data) 
+    );
+    
+    // Create OpenCV.js Mats from descriptor data
+    const targetDescriptorMat = cv.matFromArray(
+      target.descriptors.rows,
+      target.descriptors.cols,
+      cv.CV_8U,
+      target.descriptors.data
     );
 
-    const bruteForceMatcher = new cv.BFMatcher( // Brute-Force matcher
-      cv.NORM_HAMMING, // Hamming distance
-      false // crossCheck disabled        
+    const bruteForceMatcher = new cv.BFMatcher( 
+      cv.NORM_HAMMING, 
+      false         
     ); 
-    const knn = new cv.DMatchVectorVector(); // Init KNN matches
-    bruteForceMatcher.knnMatch(sourceDescriptorMat, targetDescriptorMat, knn, 2); // Match descriptors
+    
+    const knn = new cv.DMatchVectorVector(); 
+    bruteForceMatcher.knnMatch(sourceDescriptorMat, targetDescriptorMat, knn, 2); 
 
     const good = [];
 
     for (let i = 0; i < knn.size(); i++) {
-      const vec = knn.get(i); 
-      
+      const vec = knn.get(i);      
       if (vec.size() >= 2) {  
         const m = vec.get(0); 
-        const n = vec.get(1); 
-        
-        if (m.distance < ratio * n.distance) good.push(m);
+        const n = vec.get(1);         
+        if (m.distance < opts.ratio * n.distance) good.push(m);
       }
       vec.delete(); 
     }
@@ -176,23 +166,15 @@ export class ORBModule {
 
     if (good.length >= 4) {    
       // Prepare array for source points
-      const srcPts = new cv.Mat(
-        good.length, 
-        1, 
-        cv.CV_32FC2 
-      );
+      const srcPts = new cv.Mat(good.length, 1, cv.CV_32FC2);
 
       // Prepare array for destination points
-      const dstPts = new cv.Mat(
-        good.length, 
-        1, 
-        cv.CV_32FC2 
-      );
+      const dstPts = new cv.Mat(good.length, 1, cv.CV_32FC2);
 
       for (let i = 0; i < good.length; i++) {
         const m  = good[i]; // current match
-        const s = orbDataA.keypoints[m.queryIdx]; // normalized src KP
-        const t  = orbDataB.keypoints[m.trainIdx]; // target KP point
+        const s = source.keypoints[m.queryIdx]; // normalized src KP
+        const t  = target.keypoints[m.trainIdx]; // target KP point
  
         // Set coordinates for ith point in source and destination Mats
         srcPts.data32F[i*2]   = s.x; // source x
@@ -209,7 +191,7 @@ export class ORBModule {
         srcPts, 
         dstPts,
         cv.RANSAC, // method (RANSAC)
-        ransacThresh, 
+        opts.ransacThresh, 
         mask // output mask
       );
       // If homography is found, extract data
