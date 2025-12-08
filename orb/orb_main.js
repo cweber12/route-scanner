@@ -103,7 +103,7 @@ let landmarkImages = [];
 let landmarkFrameIdx = 0;
 
 let detectResult = null; // Detection result state
-let orbJSON   = null; // Detected features JSON state
+let orbJSON      = null; // Detected features JSON state
 
 /*___________________________________________________________________________________
                                   STATES
@@ -112,6 +112,7 @@ ________________________________________________________________________________
 let cvReady      = false; // OpenCV.js readiness flag 
 let imgAReady    = false; // Image A readiness flag
 let imgBReady    = false; // Image B readiness flag
+let interpolate  = false; 
 
 /*------------------------------------------------------------------------------------
 VERIFY OPENCV.JS IS READY
@@ -152,6 +153,53 @@ Enable or disable buttons based on current states */
 function refreshButtons() {    
     btnDetect.disabled = !(cvReady && imgAReady); 
     btnMatch.disabled  = !(cvReady && imgBReady && haveFeatures()); 
+}
+
+function computeTransformationMatrix(matchResult, offsetKeypointsB, source) {
+    let transformMat = null; // init transformation matrix
+    try {
+        if (!matchResult.matches || matchResult.matches.length < 4) {
+            throw new Error('Not enough matches to compute transform.');
+        }
+        const kpA = getShared('orbA'); // get keypoints A from shared state
+        console.log('Keypoints A:', kpA);
+
+        const [srcMatches, dstMatches] = matchesToArray(
+            matchResult.matches,
+            kpA,
+            offsetKeypointsB,
+            source.imageSize
+        );
+
+        if (!srcMatches || !dstMatches) {
+            console.error('Not enough matches to compute transform.');
+            return;
+        
+        } else {
+            console.log('Source Matches:', srcMatches);
+            console.log('Destination Matches:', dstMatches);
+            // Compute transform
+            const poseTransformer = new PoseTransform(window.cv);
+            transformMat =  poseTransformer.computeTransform(
+                srcMatches,
+                dstMatches,
+                'homography'
+            );
+        }
+    
+        if (!transformMat || transformMat.empty()) {
+            console.error('Homography computation failed: transformMat is empty.');
+            return;
+        }
+        console.log('Homography matrix data:', transformMat.data64F || transformMat.data32F);
+     
+    } catch (e) {
+        console.error('Transform computation error', e);
+        alert('Transform computation failed. See console.');
+        return;
+    } finally {
+        return transformMat; // return transformation matrix
+    }
 }
 
 /*------------------------------------------------------------------------------------
@@ -327,7 +375,6 @@ btnMatch.addEventListener('click', () => {
     const croppedCanvasB = cropBoxB.cropImage();;
     const target         = matFromImageEl(croppedCanvasB);    
     let matchResult      = null; // match result
-    let transformMat     = null; // transformation matrix
     const transformedAllFrames = []; //
     const drawnImages    = []; // images with drawn landmarks
 
@@ -411,47 +458,8 @@ btnMatch.addEventListener('click', () => {
     /*-----------------------------------------------------------------------
     Compute transform from matches */ 
 
-    try {
-        if (!matchResult.matches || matchResult.matches.length < 4) {
-            throw new Error('Not enough matches to compute transform.');
-        }
-        const kpA = getShared('orbA'); // get keypoints A from shared state
-        console.log('Keypoints A:', kpA);
-
-        const [srcMatches, dstMatches] = matchesToArray(
-            matchResult.matches,
-            kpA,
-            offsetKeypointsB,
-            source.imageSize
-        );
-
-        if (!srcMatches || !dstMatches) {
-            console.error('Not enough matches to compute transform.');
-            return;
-        
-        } else {
-            console.log('Source Matches:', srcMatches);
-            console.log('Destination Matches:', dstMatches);
-            // Compute transform
-            const poseTransformer = new PoseTransform(window.cv);
-            transformMat =  poseTransformer.computeTransform(
-                srcMatches,
-                dstMatches,
-                'homography'
-            );
-        }
+    let transformMat = computeTransformationMatrix(matchResult, offsetKeypointsB, source);
     
-        if (!transformMat || transformMat.empty()) {
-            console.error('Homography computation failed: transformMat is empty.');
-            return;
-        }
-        console.log('Homography matrix data:', transformMat.data64F || transformMat.data32F);
-     
-    } catch (e) {
-        console.error('Transform computation error', e);
-        alert('Transform computation failed. See console.');
-        return;
-    }
 
     /*-----------------------------------------------------------------------
     Apply transform to pose landmarks */ 
