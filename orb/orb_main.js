@@ -29,9 +29,9 @@ ________________________________________________________________________________
 const el = (id) => document.getElementById(id);
 
 // File input elements
-const imgA     = el('imgA'); // Image A element (extracted frame)
-const fileB    = el('fileB'); // File input for Image B
-const imgB     = el('imgB'); // Image B element
+const imgA  = el('imgA'); // Image A element (extracted frame)
+const fileB = el('fileB'); // File input for Image B
+const imgB  = el('imgB'); // Image B element
 
 // Canvas elements
 const canvasA       = el('canvasA'); // Display keypoints on Image A
@@ -47,7 +47,7 @@ const intervalInput = el('intervalInput'); // Input for frame interval
 
 // ORB detection stats 
 const statsDetect = el('statsDetect'); // Stats display for Image A
-const statsMatch = el('statsMatch'); // Stats display for Image B
+const statsMatch  = el('statsMatch'); // Stats display for Image B
 
 // ORB parameters elements
 const nfeatures     = el('nfeatures'); // Number of features to detect
@@ -67,20 +67,20 @@ const frameCounter = el('frameCounter'); // Frame counter display
 const frameImg     = el('frameImg'); // Frame image display
 
 // Section elements for showing/hiding sections
-const poseSection  = el('poseSection'); // Pose section
-const poseControls = el('poseControls'); // Pose controls section
-const orbSection   = el('orbSection'); // ORB section
-const matchSection = el('matchSection'); // Match features section
-const matchControls= el('matchControls'); // Match controls section 
-const showMatch    = el('showMatch'); // Show match section
+const poseSection   = el('poseSection'); // Pose section
+const poseControls  = el('poseControls'); // Pose controls section
+const orbSection    = el('orbSection'); // ORB section
+const matchSection  = el('matchSection'); // Match features section
+const matchControls = el('matchControls'); // Match controls section 
+const showMatch     = el('showMatch'); // Show match section
 
 // Crop box elements
-const cropBoxEl    = el('cropBoxOrbA'); // Crop box for Image A
-const cropBoxElB   = el('cropBoxOrbB'); // Crop box for Image B
+const cropBoxEl  = el('cropBoxOrbA'); // Crop box for Image A
+const cropBoxElB = el('cropBoxOrbB'); // Crop box for Image B
 
 // Status display element
-const statusEl      = el('status');
-const status2El     = el('status-2');
+const statusEl  = el('status');
+const status2El = el('status-2');
 
 /*___________________________________________________________________________________
                             GLOBAL VARIABLES
@@ -152,66 +152,17 @@ function refreshButtons() {
     btnMatch.disabled  = !(cvReady && imgBReady && haveFeatures()); 
 }
 
-/*------------------------------------------------------------------------------------
-COMPUTE TRANSFORMATION MATRIX
-Calculate the transformation matrix using matched keypoints */
-
-function computeTransformationMatrix(matchResult, keypointsA, keypointsB) {
-    let transformationMatrix = null; // init transformation matrix
-    try {
-        if (!matchResult.matches || matchResult.matches.length < 4) {
-            throw new Error('Not enough matches to compute transform.');
-        }
-
-        const [srcMatches, dstMatches] = matchesToArray(
-            matchResult.matches,
-            keypointsA,
-            keypointsB,
-        );
-
-        if (!srcMatches || !dstMatches) {
-            console.error('Not enough matches to compute transform.');
-            return;
-        
-        } else {
-            console.log('Source Matches:', srcMatches);
-            console.log('Destination Matches:', dstMatches);
-            // Compute transform
-            const poseTransformer = new PoseTransform(window.cv);
-            transformationMatrix =  poseTransformer.computeTransform(
-                srcMatches,
-                dstMatches,
-                'homography'
-            );
-        }
-    
-        if (!transformationMatrix || transformationMatrix.empty()) {
-            console.error('Homography computation failed: transformationMatrix is empty.');
-            return;
-        }
-        console.log('Homography matrix data:', transformationMatrix.data64F || transformationMatrix.data32F);
-     
-    } catch (e) {
-        console.error('Transform computation error', e);
-        alert('Transform computation failed. See console.');
-        return;
-    } finally {
-        return transformationMatrix; // return transformation matrix
-    }
-}
-
-/*------------------------------------------------------------------------------------
-APPLY TRANSFORMATION MATRIX
-Apply the transformation matrix to pose landmarks in all frames */
-
+/* APPLY TRANSFORMATION MATRIX
+   Apply the transformation matrix to pose landmarks in all frames 
+____________________________________________________________________________________*/
 function applyTransformationMatrix(transformationMatrix, transformedPoses) {
     try {
         const poseTransformer = new PoseTransform(window.cv);
-        const poseLandmarksAllFrames = getShared('poseA'); // Array of arrays (frames)
+        const poseLandmarksAllFrames = getShared('poseA'); 
 
         for (let i = 0; i < poseLandmarksAllFrames.length; i++) {
             const frameLandmarks = poseLandmarksAllFrames[i];
-            if (!frameLandmarks || frameLandmarks.length === 0) continue; // skip empty frames
+            if (!frameLandmarks || frameLandmarks.length === 0) continue; 
 
             const transformed = poseTransformer.transformLandmarks(
                 frameLandmarks,
@@ -220,7 +171,6 @@ function applyTransformationMatrix(transformationMatrix, transformedPoses) {
             );
             transformedPoses.push(transformed);
         }
-
         console.log('All Transformed Pose Landmarks:', transformedPoses);
         setShared('transformedPoseLandmarks', transformedPoses);
     } catch (e) {
@@ -240,11 +190,8 @@ function drawTransformedLandmarks(transformedPoses, imgB) {
         for (let i = 0; i < transformedPoses.length; i++) {
             const landmarks = transformedPoses[i];
             if (!landmarks || landmarks.length === 0) continue;
-            // Create a new canvas for each frame
             const tempCanvas = document.createElement('canvas');
-            // Draw landmarks on a copy of image B
             drawLandmarksOnImage(tempCanvas, imgB, landmarks, 'lime');
-            // Store the image as a data URL
             drawnImages.push(tempCanvas.toDataURL());
         }
         // Optionally, store in shared state for later use
@@ -454,32 +401,35 @@ btnMatch.addEventListener('click', () => {
     }
 
     // Crop selected region and convert to OpenCV Mat for ORB detection
-    const croppedRegionB = cropBoxB.cropImage();
-    const target         = matFromImageEl(croppedRegionB);    
+    const cropAreaB    = cropBoxB.cropImage();
+    const cropAreaBMat = matFromImageEl(cropAreaB);    
 
     // Detect features on image B using same orbDetectionParameters as image A
-    const detectResultB = orbModule.detectORB(target, orbDetectionParameters);
+    const detectResultB = orbModule.detectORB(cropAreaBMat, orbDetectionParameters);
     const cropRectB  = cropBoxB.getCropRect();
-    // For B (target)
-    const orbDataB = {
+    
+    // Format ORB Data for OpenCV matching    
+    const orbDataB = { 
         ...detectResultB, 
         keypoints: detectResultB.keypoints.map(kp => ({
             ...kp,
-            x: kp.x + cropRectB.x,
-            y: kp.y + cropRectB.y
+            // adjust keypoint coordinates to full image B
+            x: kp.x + cropRectB.x, 
+            y: kp.y + cropRectB.y 
         }))
     };
 
-    // For A (source)
     const orbDataA = {
         ...sourceJson,
         keypoints: sourceJson.keypoints.map(kp => ({
             ...kp,
+            // denormalize keypoints to pixel coordinates in image A
             x: kp.x * sourceJson.imageSize.width,
             y: kp.y * sourceJson.imageSize.height
         })),
         descriptors: {
             ...sourceJson.descriptors,
+            // Convert base64 descriptor data to Uint8Array if needed
             data: sourceJson.descriptors.data
                 ? new Uint8Array(sourceJson.descriptors.data)
                 : orbModule._b64ToU8(sourceJson.descriptors.data_b64)
@@ -521,11 +471,14 @@ btnMatch.addEventListener('click', () => {
     /* TRANSFORM POSE LANDMARKS
        Transfrom landmarks from image A to --> image B using matches
     _________________________________________________________________________*/
-    
-    let transformationMatrix = computeTransformationMatrix(
-        matchResult,
-        orbDataA.keypoints, 
+    // Create PoseTransform instance
+    const poseTransformer = new PoseTransform(window.cv);
+    // Compute transformation matrix from matches
+    const transformationMatrix = poseTransformer.computeTransform(
+        matchResult.matches,
+        orbDataA.keypoints,
         orbDataB.keypoints, 
+        'homography'
     );
 
     const transformedPoses = [];

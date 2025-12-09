@@ -15,7 +15,6 @@ export class ORBModule {
   _______________________________________________________________________________*/
   
   detectORB(srcRGBA, opts = {}) {
-    const cv = this.cv; 
     
     // Default parameters
     const {
@@ -25,16 +24,16 @@ export class ORBModule {
       edgeThreshold = 31, // Size of the border where features are not detected
       firstLevel    = 0, // Level of pyramid to put source image to
       WTA_K         = 2, // Number of pts that produce each element of descriptor
-      scoreType     = cv.ORB_HARRIS_SCORE, // Score type (HARRIS or FAST)
+      scoreType     =this.cv.ORB_HARRIS_SCORE, // Score type (HARRIS or FAST)
       patchSize     = 31, // Size of the patch used by the rotated BRIEF descriptor
       fastThreshold = 20 // Threshold for FAST corner detector
     } = opts; 
 
     // Create new Mats and ORB detector
-    const gray = new cv.Mat();
-    cv.cvtColor(srcRGBA, gray, cv.COLOR_RGBA2GRAY);
+    const gray = new this.cv.Mat();
+   this.cv.cvtColor(srcRGBA, gray,this.cv.COLOR_RGBA2GRAY);
 
-    const orbDetector = new cv.ORB(
+    const orbDetector = new this.cv.ORB(
       nfeatures, 
       scaleFactor, 
       nlevels, 
@@ -47,15 +46,15 @@ export class ORBModule {
     );
 
     // 3. Prepare keypoint vector and descriptor Mat
-    const kpVec = new cv.KeyPointVector();
-    const des = new cv.Mat();
+    const kpVec = new this.cv.KeyPointVector();
+    const des = new this.cv.Mat();
 
     // 4. Perform detection and computation
     try {
       // 4.1 Detect and compute
       orbDetector.detectAndCompute(
         gray, // input image (grayscale)
-        new cv.Mat(), // mask (none)
+        new this.cv.Mat(), // mask (none)
         kpVec, // output keypoints
         des // output descriptors
       );
@@ -106,73 +105,83 @@ export class ORBModule {
     };
 
     return json;
-  }
+  }    
   
   /* MATCH KEYPOINTS FROM SOURCE <-> TARGET IMAGE
+     Matches source <-> target ORB features using Brute-Force matcher
+     Reference: https://docs.opencv.org/4.x/dc/dc3/tutorial_py_matcher.html
   _______________________________________________________________________________ */
-
   matchFeatures(source, target, opts = {}) {  
     
-    // Validate input ORB data
+    // Validate source descriptors
     if (!source?.descriptors?.rows || !source?.descriptors?.cols) {
       throw new Error('No source descriptors');
     }
+    // Validate target descriptors
     if (!target?.descriptors?.rows || !target?.descriptors?.cols) {
         throw new Error('No target descriptors');
     }
-    
-    // Extract OpenCV.js instance
-    const cv = this.cv; 
 
-    const sourceDescriptorMat = cv.matFromArray(
+    // Create Mats from source descriptors
+    // NOTE: source descriptors are stored as Base64 string in JSON
+    // and need to be converted back to Uint8Array for matFromArray
+    const sourceDescriptorMat = this.cv.matFromArray(
       source.descriptors.rows, 
       source.descriptors.cols, 
-      cv.CV_8U,  
+      this.cv.CV_8U, 
       new Uint8Array(source.descriptors.data) 
     );
     
-    // Create OpenCV.js Mats from descriptor data
-    const targetDescriptorMat = cv.matFromArray(
+    // Create Mats from target descriptors
+    const targetDescriptorMat =this.cv.matFromArray(
       target.descriptors.rows,
       target.descriptors.cols,
-      cv.CV_8U,
+      this.cv.CV_8U,
       target.descriptors.data
     );
 
-    const bruteForceMatcher = new cv.BFMatcher( 
-      cv.NORM_HAMMING, 
+    // Initialize Brute-Force matcher
+    const bruteForceMatcher = new this.cv.BFMatcher( 
+      this.cv.NORM_HAMMING, 
       false         
     ); 
     
-    const knn = new cv.DMatchVectorVector(); 
-    bruteForceMatcher.knnMatch(sourceDescriptorMat, targetDescriptorMat, knn, 2); 
+    // Perform knnMatch to get 2 nearest neighbors for each descriptor 
+    const matchVectors = new this.cv.DMatchVectorVector(); 
+    bruteForceMatcher.knnMatch(
+      sourceDescriptorMat, 
+      targetDescriptorMat, 
+      matchVectors, 
+      2 
+    ); 
 
-    const good = [];
+    const goodMatches = [];
 
-    for (let i = 0; i < knn.size(); i++) {
-      const vec = knn.get(i);      
+    // Apply Lowe's ratio test to filter good matches
+    for (let i = 0; i < matchVectors.size(); i++) {
+      const vec = matchVectors.get(i);      
       if (vec.size() >= 2) {  
         const m = vec.get(0); 
         const n = vec.get(1);         
-        if (m.distance < opts.ratio * n.distance) good.push(m);
+        if (m.distance < opts.ratio * n.distance) goodMatches.push(m);
       }
       vec.delete(); 
     }
-    knn.delete();
+    matchVectors.delete();
 
     let homographyMatrix = null; 
     let inliers          = 0; 
     let inlierMask       = null; 
 
-    if (good.length >= 4) {    
+    if (goodMatches.length >= 4) {    
       // Prepare array for source points
-      const srcPts = new cv.Mat(good.length, 1, cv.CV_32FC2);
+      const srcPts = new this.cv.Mat(goodMatches.length, 1, this.cv.CV_32FC2);
 
       // Prepare array for destination points
-      const dstPts = new cv.Mat(good.length, 1, cv.CV_32FC2);
+      const dstPts = new this.cv.Mat(goodMatches.length, 1,this.cv.CV_32FC2);
 
-      for (let i = 0; i < good.length; i++) {
-        const m  = good[i]; // current match
+      for (let i = 0; i < goodMatches.length; i++) {
+        const m  = goodMatches[i]; // current match
         const s = source.keypoints[m.queryIdx]; // normalized src KP
         const t  = target.keypoints[m.trainIdx]; // target KP point
  
@@ -184,201 +193,186 @@ export class ORBModule {
       }
       
       // Prepare mask for inliers
-      const mask = new cv.Mat();
+      const mask = new this.cv.Mat();
 
       // Compute homography using RANSAC
-      const Hmat = cv.findHomography(
+      const Hmat =this.cv.findHomography(
         srcPts, 
         dstPts,
-        cv.RANSAC, // method (RANSAC)
+       this.cv.RANSAC, 
         opts.ransacThresh, 
-        mask // output mask
+        mask 
       );
-      // If homography is found, extract data
+
       if (!Hmat.empty()) {
-        // Convert homography Mat to JS array
         homographyMatrix = Array.from(Hmat.data64F ?? Hmat.data32F);
-        // Count inliers from mask
-        inliers = cv.countNonZero(mask);
-        // Create inlier mask array (boolean)
+        inliers =this.cv.countNonZero(mask);
         inlierMask = Array.from(mask.data).map(v => v !== 0);
       }
-      // Cleanup
+
       srcPts.delete(); // source points Mat
       dstPts.delete(); // destination points Mat
       mask.delete(); // inlier mask Mat
       Hmat.delete(); // homography Mat
     }
 
-    bruteForceMatcher.delete(); // brute force matcher
+    bruteForceMatcher.delete(); 
     sourceDescriptorMat.delete(); 
     targetDescriptorMat.delete(); 
 
-    console.log('good matches: ', good.length);
-    // 16. Return match results
+    console.log('good matches: ', goodMatches.length);
+
     return { 
-      matches: good, // array of good matches
-      homography: homographyMatrix, // homography array (or null)
-      numInliers: inliers, // number of inliers
-      inlierMask // inlier mask array (or null)
+      matches: goodMatches, 
+      homography: homographyMatrix, 
+      numInliers: inliers, 
+      inlierMask 
     };
   }
 
   /* DRAW DETECTED KEYPOINTS ON IMAGE
-  ---------------------------------------------------------------------------------
-  Display detected keypoints over the image on a canvas
-  
-  Inputs:  
-  - imgRGBA: source image in RGBA format (cv.Mat)
-  - keypoints: array of keypoints with x,y coordinates
-  - outCanvas: HTML canvas element to draw on 
-  ---------------------------------------------------------------------------------*/
+  ______________________________________________________________________*/
   drawKeypoints(imgRGBA, keypoints, outCanvas) {
-    const cv = this.cv; // OpenCV.js
     
     // Set output canvas size
     outCanvas.width  = imgRGBA.cols;   
     outCanvas.height = imgRGBA.rows;
     
     // Initialize output Mat
-    const out = new cv.Mat( 
+    const out = new this.cv.Mat( 
       imgRGBA.rows, // height
       imgRGBA.cols, // width
-      cv.CV_8UC4, // type
+     this.cv.CV_8UC4, // type
     );
     
     imgRGBA.copyTo(out); // copy source image
-
+  
     // Loop through keypoints and draw circles
     for (const kp of keypoints) {
       // Draw green circle at keypoint location
-      cv.circle(
-        out, // target Mat
-        new cv.Point( // center point
-          Math.round(kp.x), // x coordinate
-          Math.round(kp.y) // y coordinate
-        ), 
-        3, // radius 
-        new cv.Scalar(0,255,0,255), // color (green) 
-        -1, // filled circle
-        cv.LINE_AA // line type (antialiased)
-      );
-    }
-    cv.imshow(outCanvas, out); // display on canvas
-    out.delete(); // cleanup
+      this.cv.circle(
+          out, // output Mat
+          new this.cv.Point(Math.round(kp.x), Math.round(kp.y)), // center point 
+          3, new this.cv.Scalar(0,255,0,255), -1, // raduis, color, fill
+          this.cv.LINE_AA // line type
+        );
+      }
+      this.cv.imshow(outCanvas, out); // display on canvas
+      out.delete(); // cleanup
   }
 
-  
   /* DRAW MATCHES BETWEEN IMAGE A <-> IMAGE B
-  ---------------------------------------------------------------------------------
-  Display both images side by side with matched keypoints and lines connecting them
-  
-  Inputs:
-  - imgA: first image (cv.Mat)
-  - imgB: second image (cv.Mat)
-  - keypointsA: keypoints from image A (array)
-  - keypointsB: keypoints from image B (array)
-  - matchRes: result from matchFeatures (matches, inlierMask)
-  - originalSizeA: original size of image A {width, height} for denormalization 
-  ---------------------------------------------------------------------------------*/
-  drawMatches(imgA, imgB, keypointsA, keypointsB, matchRes) {      
-    const cv   = this.cv; // OpenCV.js
+  _______________________________________________________________________________ */
+  drawMatches(
+    imgA, // HTMLImageElement source image, 
+    imgB, // HTMLImageElement target image
+    keypointsA, // {x,y} keypoints from image A,
+    keypointsB, // {x,y} keypoints from image B,
+    matchRes // {matches : DMatch[], inlierMask: Uint8Array} match results
+  ) {      
 
+    // Convert images to cv.Mat
     const matrixA = matFromImageEl(imgA);
     const matrixB = matFromImageEl(imgB);
 
-    const outH = Math.max(matrixA.rows, matrixB.rows); // Output height
-    const outW = matrixA.cols + matrixB.cols; // Output width
+    const outH = Math.max(matrixA.rows, matrixB.rows); 
+    const outW = matrixA.cols + matrixB.cols; 
     
     // Create new output Mat
-    const drawnMatches = new cv.Mat(
+    const drawnMatches = new this.cv.Mat(
       outH, // output height     
       outW, // output width
-      cv.CV_8UC4, // type
-      new cv.Scalar(0,0,0,255) // black background
+     this.cv.CV_8UC4, 
+      new this.cv.Scalar(0,0,0,255) 
     );
 
-    // Region of Interest (ROI) for image A
+    // Image A placement on drawnMatches (region of interest)
     const roiA = drawnMatches.roi(
-      new cv.Rect(
-        0, // init x (left)
-        0, // init y (top)
+      new this.cv.Rect(
+        0, 0, // x, y (top-left)
         matrixA.cols, // width
         matrixA.rows // height
       )
     );
-    matrixA.copyTo(roiA); // copy image A into ROI
-    roiA.delete(); // release ROI
 
-    // ROI for image B
+    // Copy image A to its region of interest
+    matrixA.copyTo(roiA); 
+    roiA.delete(); 
+
+    // Image B placement on drawnMatches
     const roiB = drawnMatches.roi(
-      new cv.Rect(
-        matrixA.cols, // init x (after image A)
-        0, // init y (top)
+      new this.cv.Rect(
+        matrixA.cols, 0, // x (after image A), y (top)
         matrixB.cols, // width
         matrixB.rows // height
       )
     );
-    matrixB.copyTo(roiB); // copy image B into ROI
-    roiB.delete(); // release ROI
+    
+    // Copy image B to its region of interest
+    matrixB.copyTo(roiB); 
+    roiB.delete(); 
     
     // Determine inlier mask
     const inMask = matchRes.inlierMask;
 
     // Loop through matches and draw lines + circles
-    for (let i = 0; i < matchRes.matches.length; i++) {
-      
+    for (let i = 0; i < matchRes.matches.length; i++) {     
       const m  = matchRes.matches[i]; // current match
-      const p1 = keypointsA[m.queryIdx]; // point from image A
-      const p2 = keypointsB[m.trainIdx]; // point from image B
+      const p1 = keypointsA[m.queryIdx]; // point from source image
+      const p2 = keypointsB[m.trainIdx]; // point from target image
       
       if (!p1 || !p2) continue; // sanity check
       
       // Determine if inlier
       const inlier = inMask ? Boolean(inMask[i]) : true;
       
-      const GREEN = new cv.Scalar(0, 255, 0, 255);
-      const RED   = new cv.Scalar(255, 0, 0, 255);
+      // Define colors for inliers and outliers
+      const GREEN = new this.cv.Scalar(0, 255, 0, 255);
+      const RED   = new this.cv.Scalar(255, 0, 0, 255);
 
       const color = inlier ? GREEN : RED;
 
-      const pointA = new cv.Point(
+      // Define points in pixel coordinates
+      const pointA = new this.cv.Point(
         Math.round(p1.x * matrixA.cols),
         Math.round(p1.y * matrixA.rows)
       );
 
-      const pointB = new cv.Point(
+      const pointB = new this.cv.Point(
         Math.round(p2.x + matrixA.cols), 
         Math.round(p2.y)
       );
 
-      cv.line(drawnMatches, pointA, pointB, color, 1, cv.LINE_AA);
-      cv.circle(drawnMatches, pointA, 3, color, -1, cv.LINE_AA);
-      cv.circle(drawnMatches, pointB, 3, color, -1, cv.LINE_AA);
+      // Draw the matching keypoints with a line connecting them
+      this.cv.line(drawnMatches, pointA, pointB, color, 1,this.cv.LINE_AA);
+      this.cv.circle(drawnMatches, pointA, 3, color, -1,this.cv.LINE_AA);
+      this.cv.circle(drawnMatches, pointB, 3, color, -1,this.cv.LINE_AA);
 
     }
 
+    // Clean up
     matrixA.delete();
     matrixB.delete();
 
+    // Return the mat with drawn matches
     return drawnMatches;
   }
 
-      /* DIAGRAM FOR OUTPUT IMAGE LAYOUT
-      ------------------------------------------------------------------------------ 
+  /* DIAGRAM FOR OUTPUT IMAGE LAYOUT
+  _________________________________________________________________________________ 
 
-            {   matrixA.cols   } {         matrixB.cols    }
-      (0,0) -----------------------------------------------
-            |                  >|                        >|<
-            |                >  |                      >  |  <
-            | matrixA.rows -->  |       matrixB.rows -->  |  <-- outH
-            |                  >|                      >  |  <
-    empty   --------------------|                        >|<
-    space ->////////////////////---------------------------
-            {                   outW                      }
+        {   matrixA.cols   } {         matrixB.cols    }
+  (0,0) -----------------------------------------------
+        |    ROI A         >|         ROI B          >|<
+        |                >  |                      >  |  <
+        | matrixA.rows -->  |       matrixB.rows -->  |  <-- outH
+        |                  >|                      >  |  <
+        --------------------|                        >|<
+        ////////////////////---------------------------
+        {                   outW                      } */
 
-      ------------------------------------------------------------------------------ */
-
+  
+  
   /*________________________________________________________________________________
                            INTERNAL METHODS
   _________________________________________________________________________________*/

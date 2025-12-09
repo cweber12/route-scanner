@@ -7,87 +7,76 @@ export class PoseTransform {
   }
   
   /* COMPUTE TRANSFORM MATRIX
-  ---------------------------------------------------------------------------------------
   Transform computation from matched keypoints between two sets of ORB features
+  _______________________________________________________________________________*/
+  computeTransform(matches, keypointsA, keypointsB, method = 'homography') {
 
-  Input:
-    - srcLandmarks: Array of source landmarks [{x, y}, ...] (normalized coordinates)
-    - dstLandmarks: Array of destination landmarks [{x, y}, ...] (pixel coordinates)
-    - srcSize: Size of source image { width, height } for denormalization
-    - method: 'homography' or 'affine' (default: 'homography')
-  Output:
-    - M: transformation matrix (cv.Mat) */
+    const matchArrays = this.matchesToArray(
+      matches,
+      keypointsA,
+      keypointsB,
+    );
 
-  computeTransform(srcLandmarks, dstLandmarks, method = 'homography') {
-    const cv = this.cv;
-    // Validate input landmark arrays
-    if (srcLandmarks.length !== dstLandmarks.length 
-      || srcLandmarks.length < (method === 'homography' ? 4 : 3)) {
-      throw new Error('Insufficient or mismatched landmark pairs');
+    if (!matchArrays) {
+      console.warn('Transform computation failed: not enough matches or invalid input.');
+      return null;
     }
+
+    const [srcMatches, dstMatches] = matchArrays;
     
     // Build flat array of source points (image A)
     const srcPts = []; // initialize array
-    for (const lm of srcLandmarks) { 
+    for (const lm of srcMatches) { 
       srcPts.push(lm.x); 
       srcPts.push(lm.y); 
     }
     
     // Build flat array of destination points (image B)
     const dstPts = []; // initialize array
-    for (const lm of dstLandmarks) {
+    for (const lm of dstMatches) {
       dstPts.push(lm.x); // pixel x
       dstPts.push(lm.y); // pixel y
     }
 
     // Convert to cv.Mat
-    const srcMat = cv.matFromArray(srcLandmarks.length, 1, cv.CV_32FC2, srcPts);
-    const dstMat = cv.matFromArray(dstLandmarks.length, 1, cv.CV_32FC2, dstPts);
+    const srcMat = this.cv.matFromArray(srcMatches.length, 1, this.cv.CV_32FC2, srcPts);
+    const dstMat = this.cv.matFromArray(dstMatches.length, 1, this.cv.CV_32FC2, dstPts);
 
-    let M; // transformation matrix
+    let transformationMatrix; // transformation matrix
 
     // Compute transformation matrix
     if (method === 'homography') {
-      M = cv.findHomography(srcMat, dstMat, cv.RANSAC);
+      transformationMatrix = this.cv.findHomography(srcMat, dstMat, this.cv.RANSAC);
     } else {
-      M = cv.estimateAffine2D(srcMat, dstMat);
+      transformationMatrix = this.cv.estimateAffine2D(srcMat, dstMat);
     }
 
     // Clean up
     srcMat.delete();
     dstMat.delete();
 
-    return M; // return transformation matrix
+    return transformationMatrix; // return transformation matrix
   }
 
   /* APPLY TRANSFORM TO LANDMARKS
   ---------------------------------------------------------------------------------------
   Apply transformation matrix to detected pose landmarks from image A to 
-  map them to the coordinate space of image B.
-
-  Input:
-    - landmarks: Array of landmarks [{x, y}, ...] (normalized coordinates)
-    - srcSize: Size of source image { width, height } for denormalization
-    - M: transformation matrix (cv.Mat)
-    - method: 'homography' or 'affine' (default: 'homography')
-  Output:
-    - out: Array of transformed landmarks [{x, y}, ...] (pixel coordinates) */   
+  map them to the coordinate space of image B.*/ 
 
   transformLandmarks(landmarks, M, method = 'homography') {
-    const cv = this.cv;
     const pts = [];
 
     for (const lm of landmarks) {
       pts.push(lm.x);
       pts.push(lm.y);
     }
-    const ptsMat = cv.matFromArray(landmarks.length, 1, cv.CV_32FC2, pts);
-    const outMat = new cv.Mat();
+    const ptsMat = this.cv.matFromArray(landmarks.length, 1, this.cv.CV_32FC2, pts);
+    const outMat = new this.cv.Mat();
 
     if (method === 'homography') {
-      cv.perspectiveTransform(ptsMat, outMat, M);
+      this.cv.perspectiveTransform(ptsMat, outMat, M);
     } else {
-      cv.transform(ptsMat, outMat, M);
+      this.cv.transform(ptsMat, outMat, M);
     }
 
     // Convert back to JS array
@@ -104,4 +93,32 @@ export class PoseTransform {
 
     return transformed;
   }
+
+  matchesToArray(matches, keypointsA, keypointsB) {
+
+    if (!Array.isArray(matches) || !Array.isArray(keypointsA) || !Array.isArray(keypointsB)) {
+        console.warn('Invalid arguments to computeTransformFromMatches');
+        return null;
+    }
+
+    const sourceMatches = [], targetMatches = []; 
+    
+    // Save matched keypoints (filter out unmatched)
+    for (const m of matches) {
+        const s = keypointsA[m.queryIdx]; 
+        const t = keypointsB[m.trainIdx]; 
+        
+        sourceMatches.push({ x: s.x, y: s.y });
+        targetMatches.push({ x: t.x, y: t.y });
+    }
+
+    if (sourceMatches.length < 4 || targetMatches.length < 4) {
+        console.warn('Not enough matches to compute transform');
+        return null;
+    }
+    // Return matched keypoint arrays
+    return [sourceMatches, targetMatches];
+
+  }
 }
+

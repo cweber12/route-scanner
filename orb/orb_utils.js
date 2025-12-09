@@ -118,53 +118,31 @@ export function imshowCompat(canvas, mat) {
 }
 
 /* MATCHES TO ARRAY
------------------------------------------------------------------------------
-Convert matches and keypoints to arrays of matched points in pixel coordinates.
-
-Input:
-- matches:    array of match objects with queryIdx and trainIdx
-- keypointsA: array of keypoints from image A (normalized coordinates)
-- keypointsB: array of keypoints from image B (pixel coordinates)
-- imageSizeA: size of image A {width, height} for denormalization
-
-Output:
-- [matchedSrc, matchedDst]: arrays of matched points from image A and B
-  or null if not enough matches */
-
+Convert matches and keypoints to arrays of matched points
+________________________________________________________________________________________*/
 export function matchesToArray(matches, keypointsA, keypointsB) {
-    // Validate inputs
+
     if (!Array.isArray(matches) || !Array.isArray(keypointsA) || !Array.isArray(keypointsB)) {
         console.warn('Invalid arguments to computeTransformFromMatches');
         return null;
     }
 
-    // Build matched keypoint arrays in pixel coordinates
-    const matchedSrc = []; // from image A
-    const matchedDst = []; // from image B
-    // Loop over matches and extract corresponding matched keypoints from both sets
+    const sourceMatches = [], targetMatches = []; 
+    
+    // Save matched keypoints (filter out unmatched)
     for (const m of matches) {
-        const s = keypointsA[m.queryIdx]; // Source keypoint (normalized, from keypointsA)
-        const t = keypointsB[m.trainIdx]; // Target keypoint (pixel, from keypointsB)
+        const s = keypointsA[m.queryIdx]; 
+        const t = keypointsB[m.trainIdx]; 
         
-        // Push filtered source keypoints
-        matchedSrc.push({ 
-            x: s.x, // pixel x
-            y: s.y // pixel y
-        });
-        
-        // Push filtered target keypoints
-        matchedDst.push({ 
-            x: t.x, // pixel x
-            y: t.y  // pixel y 
-        });
+        sourceMatches.push({ x: s.x, y: s.y });
+        targetMatches.push({ x: t.x, y: t.y });
     }
 
-    // Ensure enough matches to compute transform
-    if (matchedSrc.length < 4 || matchedDst.length < 4) {
+    if (sourceMatches.length < 4 || targetMatches.length < 4) {
         console.warn('Not enough matches to compute transform');
         return null;
     }
     // Return matched keypoint arrays
-    return [matchedSrc, matchedDst];
+    return [sourceMatches, targetMatches];
 
 }
