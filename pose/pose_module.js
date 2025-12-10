@@ -14,6 +14,7 @@ import { drawLandmarksOnImage } from './pose_utils.js';
 
 
 /* RUN POSE DETECTION ON FRAMES
+______________________________________________________________________________
    Extract frames from video at given interval, run pose detection,
    and store results including landmarks and images with drawn landmarks
 ______________________________________________________________________________*/
@@ -27,6 +28,9 @@ export async function runPoseDetectionOnFrames(
 ) {
     
     /* INITIALIZE POSE LANDMARKER
+    ---------------------------------------------------------------------------
+    vision: MediaPipe vision fileset resolver for loading models
+    poseLandmarker: MediaPipe PoseLandmarker instance for pose detection
     --------------------------------------------------------------------------*/
     const vision = await FilesetResolver.forVisionTasks(
         "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
@@ -42,7 +46,7 @@ export async function runPoseDetectionOnFrames(
         numPoses: 1 
     });
 
-    /* DETECT POSE LANDMARKS ON A VIDEO FRAME
+    /* DETECT POSE LANDMARKS ON A VIDEO FRAME  
     --------------------------------------------------------------------------*/
     async function processFrame(frameUrl, t, frameWidth, frameHeight) {
         const img = new Image();
@@ -110,9 +114,9 @@ export async function runPoseDetectionOnFrames(
         image pixel space, and draw landmarks on original image in canvas.
         -------------------------------------------------------------------------*/
         const result = poseLandmarker.detect(croppedImg); 
-
+        let offsetLandmarks = [];
         if (result.landmarks && result.landmarks.length > 0 && cropForThisFrame) {           
-            let offsetLandmarks = [];
+            
             for (const landmarkSet of result.landmarks) {
                 offsetLandmarks = landmarkSet.map(lm => ({
                     ...lm,
@@ -191,7 +195,7 @@ export async function runPoseDetectionOnFrames(
     let currentFrameIdx = 0; // Ensure this is defined at the top
 
     /* SHOW FRAME WITH LANDMARKS AND CROP
-    -----------------------------------------------------------------------------*/
+    -----------------------------------------------------------------------------
     function showFrame(idx) {
         if (!poseResults.length) return; // no results to show
         
@@ -263,10 +267,10 @@ export async function runPoseDetectionOnFrames(
                 );
             }
         };
-    }
+    } */
     
     /* SETUP FRAME NAVIGATION
-    -----------------------------------------------------------------------------*/
+    -----------------------------------------------------------------------------
 
     frameNav.style.display = ''; // show frame navigation
     showFrame(currentFrameIdx); // show first frame
@@ -278,6 +282,6 @@ export async function runPoseDetectionOnFrames(
     // Next frame button handler
     frameNav.querySelector('#nextFrameBtn').onclick = () => {
         if (currentFrameIdx < poseResults.length - 1) showFrame(currentFrameIdx + 1);
-    };
+    }; */
     
 }
