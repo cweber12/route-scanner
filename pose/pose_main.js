@@ -145,12 +145,16 @@ poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
   await runPoseDetectionOnFrames(
     videoEl,
     canvasEl,
-    statusEl,
     poseResults,
     n,
     frameNav,
     cropRect
   );
+
+  statusEl.innerHTML = 
+        `&gt; Poses detected in ${poseResults.length} frames<br>
+        &gt; Use prev/next buttons to review frames<br>
+        &gt; Click 'Open ORB' and scroll down`;
 
   frameNav.hidden = false;
   prevFrameBtn.disabled = poseResults.length === 0;
