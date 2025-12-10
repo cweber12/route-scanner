@@ -169,51 +169,52 @@ poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
   cropRect.left = cropRect.x;
   cropRect.top = cropRect.y;
 
-  // Get interval n
+  /* RUN POSE DETECTION
+  -----------------------------------------------------------------------------*/
   const n = parseInt(intervalInput.value, 10) || 1;
   poseResults.length = 0;
-
   statusEl.textContent = "> Detecting pose landmarks...";
   
-  await runPoseDetectionOnFrames(
-    videoEl,
-    canvasEl,
-    poseResults,
-    n,
-    frameNav,
-    cropRect
-  );
+  await runPoseDetectionOnFrames(videoEl, canvasEl, poseResults, n, cropRect);
+   
+  /* SETUP FRAME NAVIGATION
+  -----------------------------------------------------------------------------*/
+  frameNav.hidden = false;
+  prevFrameBtn.disabled = poseResults.length === 0;
+  nextFrameBtn.disabled = poseResults.length === 0;
+  currentFrameIdx = 0; // Ensure this is defined at the top
+  frameNav.style.display = ''; // show frame navigation
+  showFrame(currentFrameIdx); // show first frame
 
+  /* RESET CROP BOX
+  -----------------------------------------------------------------------------*/
+  cropBoxEl.style.zIndex = 1; 
+  cropBoxEl.hidden = true; 
+  
+  /* UPDATE STATUS AND ENABLE ORB BUTTON
+  -----------------------------------------------------------------------------*/
   statusEl.innerHTML = 
         `&gt; Poses detected in ${poseResults.length} frames<br>
         &gt; Use prev/next buttons to review frames<br>
         &gt; Click 'Open ORB' and scroll down`;
-   
-  frameNav.hidden = false;
-  prevFrameBtn.disabled = poseResults.length === 0;
-  nextFrameBtn.disabled = poseResults.length === 0;
-  cropBoxEl.style.zIndex = 1; // Restore crop box z-index
-  cropBoxEl.hidden = true; // Hide crop box after detection
-  showOrbBtn.disabled = poseResults.length === 0;
 
-  /* SETUP FRAME NAVIGATION
-  -----------------------------------------------------------------------------*/
-  currentFrameIdx = 0; // Ensure this is defined at the top
-  frameNav.style.display = ''; // show frame navigation
-  showFrame(currentFrameIdx); // show first frame
+  showOrbBtn.disabled = poseResults.length === 0;
   
+  /* STORE POSE DATA IN SHARED STATE
+  -----------------------------------------------------------------------------
+  Allows access from ORB module for pose landmark transformation
+  -----------------------------------------------------------------------------*/
   setShared('poseA', poseResults.map(frame => frame.landmarks));
   console.log('Pose Landmarks:', poseResults.map(frame => frame.landmarks));
   setShared('sizeA', {
     width: videoEl.videoWidth,
     height: videoEl.videoHeight
   });
-  console.log('Image Size:', {
-    width: videoEl.videoWidth,
-    height: videoEl.videoHeight
-  });
+
 });
 
+/* FRAME NAVIGATION BUTTONS
+-----------------------------------------------------------------------------------*/
 prevFrameBtn.onclick = () => {
   if (currentFrameIdx > 0) {
     showFrame(currentFrameIdx - 1);

@@ -191,7 +191,7 @@ function drawTransformedLandmarks(transformedPoses, imgB) {
             const landmarks = transformedPoses[i];
             if (!landmarks || landmarks.length === 0) continue;
             const tempCanvas = document.createElement('canvas');
-            drawLandmarksOnImage(tempCanvas, imgB, landmarks, 'lime');
+            drawLandmarksOnImage(tempCanvas, imgB, landmarks);
             drawnImages.push(tempCanvas.toDataURL());
         }
         // Optionally, store in shared state for later use

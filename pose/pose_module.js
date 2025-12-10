@@ -1,37 +1,31 @@
 // pose_landmarker_frame.js
 // Pose detection on extracted frames
 
-// Import MediaPipe Tasks Vision bundle
 import {
     FilesetResolver,
     PoseLandmarker, 
-    DrawingUtils
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/vision_bundle.js";
 
 import { VideoFrameExtractor } from '../VideoFrameExtractor.js';
 import {setShared} from '../shared_state.js'; 
 import { drawLandmarksOnImage } from './pose_utils.js'; 
 
-
 /* RUN POSE DETECTION ON FRAMES
 ______________________________________________________________________________
-   Extract frames from video at given interval, run pose detection,
-   and store results including landmarks and images with drawn landmarks
+Extract frames from video at given interval, run pose detection,and store 
+results. 
 ______________________________________________________________________________*/
+
 export async function runPoseDetectionOnFrames(
     originalVideo,  
-    canvasEl, // canvas element for drawing results
+    canvasEl, // canvas element for drawing landmarks on original images
     poseResults, // output array to hold results
     intervalSeconds, // detect every n seconds 
-    frameNav, // frame navigation controls
     cropRect // cropping rectangle for the video
 ) {
     
     /* INITIALIZE POSE LANDMARKER
-    ---------------------------------------------------------------------------
-    vision: MediaPipe vision fileset resolver for loading models
-    poseLandmarker: MediaPipe PoseLandmarker instance for pose detection
-    --------------------------------------------------------------------------*/
+    --------------------------------------------------------------------------- */
     const vision = await FilesetResolver.forVisionTasks(
         "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
     );
@@ -47,14 +41,20 @@ export async function runPoseDetectionOnFrames(
     });
 
     /* DETECT POSE LANDMARKS ON A VIDEO FRAME  
+    --------------------------------------------------------------------------
+    This funtion processes single video frames as they are extracted by 
+    VideoFrameExtractor. It runs pose detection, draws landmarks, and stores 
+    results in poseResults array.
     --------------------------------------------------------------------------*/
     async function processFrame(frameUrl, t, frameWidth, frameHeight) {
-        const img = new Image();
-        img.src   = frameUrl;
         
+        /* LOAD FRAME IMAGE
+        --------------------------------------------------------------------------*/
+        const img = new Image();
+        img.src   = frameUrl;        
         await new Promise(resolve => { img.onload = resolve; });
 
-        /* EXTRACT FIRST FRAME FOR ORB DETECTION
+        /* SAVE FIRST FRAME FOR ORB DETECTION
         --------------------------------------------------------------------------*/
         if (isFirstFrame) {
             isFirstFrame = false; // clear flag after first frame
@@ -74,9 +74,10 @@ export async function runPoseDetectionOnFrames(
 
         /* CROP IMAGE FOR POSE DETECTION
         --------------------------------------------------------------------------
-           Create cropped image if crop rectangle is defined.
-           This helps focus on the subject and improves detection speed.
+        Create cropped image if crop rectangle is defined. This helps focus on the 
+        subject and improves detection accuracy and speed.
         --------------------------------------------------------------------------*/
+        
         const cropForThisFrame = crop ? { ...crop } : null;
         const croppedCanvas = document.createElement('canvas');
         const croppedCtx = croppedCanvas.getContext('2d');
@@ -110,13 +111,18 @@ export async function runPoseDetectionOnFrames(
 
         /* RUN POSE DETECTION
         -------------------------------------------------------------------------
-        Run pose detection on cropped image, offset landmarks back to original 
-        image pixel space, and draw landmarks on original image in canvas.
+        result contains detected landmarks for the current frame relative to the 
+        cropped image.
         -------------------------------------------------------------------------*/
         const result = poseLandmarker.detect(croppedImg); 
+        
+        /* OFFSET AND DRAW LANDMARKS
+        -------------------------------------------------------------------------
+        Scaled and offset landmark coordinates to match the original image 
+        coordinate space for display and storage. 
+        -------------------------------------------------------------------------*/
         let offsetLandmarks = [];
-        if (result.landmarks && result.landmarks.length > 0 && cropForThisFrame) {           
-            
+        if (result.landmarks && result.landmarks.length > 0 && cropForThisFrame) {                      
             for (const landmarkSet of result.landmarks) {
                 offsetLandmarks = landmarkSet.map(lm => ({
                     ...lm,
@@ -125,14 +131,14 @@ export async function runPoseDetectionOnFrames(
                     z: lm.z,
                     visibility: lm.visibility
                 }));
-                drawLandmarksOnImage(canvasEl, img, offsetLandmarks, 'lime');
+                drawLandmarksOnImage(canvasEl, img, offsetLandmarks);
             }
         } 
 
         /* RE-CENTER NEXT FRAME CROP AROUND CURRENT FRAME HIPS
         -------------------------------------------------------------------------
-           Allows initial crop to follow the subject if they move in the frame. 
-           Avoids using heavy object detection models like YOLO for tracking.
+        Allows initial crop to follow the subject if they move in the frame. 
+        Avoids using heavy object detection models like YOLO for tracking.
         -------------------------------------------------------------------------*/
         if (crop && result.landmarks && result.landmarks.length > 0) {
             const landmarkSet = result.landmarks[0]; 
@@ -165,12 +171,7 @@ export async function runPoseDetectionOnFrames(
         }
 
         /* STORE RESULTS FOR THIS FRAME
-        -------------------------------------------------------------------------
-        time: timestamp in seconds, used for interpolation between frames
-        frameUrl: image with drawn landmarks as Data URL
-        landmarks: detected landmarks offset to original image pixel space
-        cropRect: crop rectangle used for this frame (if any)
-        -------------------------------------------------------------------------*/
+        ------------------------------------------------------------------------- */
         poseResults.push({
             time: t, // timestamp in seconds
             frameUrl: canvasEl.toDataURL(), // image with drawn landmarks
@@ -190,98 +191,6 @@ export async function runPoseDetectionOnFrames(
     
     /* EXTRACT FRAMES AND PROCESS
     -----------------------------------------------------------------------------*/
-    await extractor.extractFrames(intervalSeconds, processFrame);
-
-    let currentFrameIdx = 0; // Ensure this is defined at the top
-
-    /* SHOW FRAME WITH LANDMARKS AND CROP
-    -----------------------------------------------------------------------------
-    function showFrame(idx) {
-        if (!poseResults.length) return; // no results to show
-        
-        // Clamp index to valid range
-        currentFrameIdx = Math.max(0, Math.min(idx, poseResults.length - 1));
-        
-        // Create image for current frame
-        const frameData = poseResults[currentFrameIdx]; 
-        const img = new Image(); 
-        img.src = frameData.frameUrl; 
-        
-        // When image loads, draw to canvas
-        img.onload = () => { 
-            
-            // Get display size and determine scaling
-            const displayedVideo = originalVideo.getBoundingClientRect(); // Displayed video size
-            const scaleX = displayedVideo.width / originalVideo.videoWidth; // x scaling factor
-            const scaleY = displayedVideo.height / originalVideo.videoHeight; // y scaling factor
-
-            // Set canvas to display size for UI
-            canvasEl.width  = displayedVideo.width; // set canvas to video display width
-            canvasEl.height = displayedVideo.height; // set canvas to video display height
-            
-            // Get canvas context
-            const ctx = canvasEl.getContext('2d');
-            
-            // Clear and draw the frame image
-            ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
-            ctx.drawImage(img, 0, 0, canvasEl.width, canvasEl.height);
-
-            // Draw the crop box rectangle in display space
-            if (frameData.cropRect) {
-                ctx.save(); // save context state
-                ctx.strokeStyle = 'black'; // crop box color
-                ctx.lineWidth   = 1; // crop box line width
-                // Draw rectangle
-                ctx.strokeRect(
-                    frameData.cropRect.left * scaleX, // x position
-                    frameData.cropRect.top * scaleY, // y position
-                    frameData.cropRect.width * scaleX, // scaled width
-                    frameData.cropRect.height * scaleY // scaled height
-                );
-                ctx.restore();
-            }
-
-            // If there are landmarks, draw them in display space
-            if (frameData.landmarks && frameData.landmarks.length > 0) {
-                // Draw each landmark as a circle
-                frameData.landmarks.forEach(lm => {
-                    ctx.beginPath();
-                    const avgScale = (scaleX + scaleY) / 2;
-                    ctx.arc(lm.x * scaleX, lm.y * scaleY, 4 * avgScale, 0, 2 * Math.PI);
-                    ctx.fillStyle = 'lime';
-                    ctx.fill();
-                });
-                
-                // Draw connectors in display space
-                const drawingUtils = new DrawingUtils(ctx);
-                const normalizedLandmarks = frameData.landmarks.map(lm => ({
-                    x: (lm.x * scaleX) / canvasEl.width,
-                    y: (lm.y * scaleY) / canvasEl.height,
-                    z: lm.z,
-                    visibility: lm.visibility
-                }));
-                drawingUtils.drawConnectors(
-                    normalizedLandmarks,
-                    PoseLandmarker.POSE_CONNECTIONS,
-                    { color: 'lime', lineWidth: 2 }
-                );
-            }
-        };
-    } */
-    
-    /* SETUP FRAME NAVIGATION
-    -----------------------------------------------------------------------------
-
-    frameNav.style.display = ''; // show frame navigation
-    showFrame(currentFrameIdx); // show first frame
-
-    // Previous frame button handler
-    frameNav.querySelector('#prevFrameBtn').onclick = () => {
-        if (currentFrameIdx > 0) showFrame(currentFrameIdx - 1);
-    };
-    // Next frame button handler
-    frameNav.querySelector('#nextFrameBtn').onclick = () => {
-        if (currentFrameIdx < poseResults.length - 1) showFrame(currentFrameIdx + 1);
-    }; */
+    await extractor.extractFrames(intervalSeconds, processFrame);    
     
 }
