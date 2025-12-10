@@ -33,6 +33,50 @@ ________________________________________________________________________________
 
 const poseResults = []; // Array to store pose detection results
 const cropBox     = new CropBox(videoEl, cropBoxEl); // CropBox instance to select area 
+let currentFrameIdx; // Current frame index for navigation
+
+
+function showFrame(idx) {
+  if (!poseResults.length) return; // no results to show
+  idx = Math.max(0, Math.min(idx, poseResults.length - 1));
+  const frameData = poseResults[idx]; 
+  const img = new Image(); 
+  img.src = frameData.frameUrl; 
+  img.onload = () => { 
+      
+    // Get display size and determine scaling
+    const displayedVideo = videoEl.getBoundingClientRect(); // Displayed video size
+    const scaleX = displayedVideo.width / videoEl.videoWidth; // x scaling factor
+    const scaleY = displayedVideo.height / videoEl.videoHeight; // y scaling factor
+
+    // Set canvas to display size for UI
+    canvasEl.width  = displayedVideo.width; // set canvas to video display width
+    canvasEl.height = displayedVideo.height; // set canvas to video display height
+    
+    // Get canvas context
+    const ctx = canvasEl.getContext('2d');
+    
+    // Clear and draw the frame image
+    ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+    ctx.drawImage(img, 0, 0, canvasEl.width, canvasEl.height);
+
+    // Draw the crop box rectangle in display space
+    if (frameData.cropRect) {
+        ctx.save(); // save context state
+        ctx.strokeStyle = 'black'; // crop box color
+        ctx.lineWidth   = 1; // crop box line width
+        // Draw rectangle
+        ctx.strokeRect(
+            frameData.cropRect.left * scaleX, // x position
+            frameData.cropRect.top * scaleY, // y position
+            frameData.cropRect.width * scaleX, // scaled width
+            frameData.cropRect.height * scaleY // scaled height
+        );
+        ctx.restore();
+    }
+
+  };
+}
 
 /*___________________________________________________________________________________
                                EVENT HANDLERS
@@ -112,17 +156,13 @@ poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
   videoEl.style.display  = ''; // Show video
   videoEl.style.position = 'relative'; // Ensure video is positioned for overlay
 
-  cropBoxEl.style.zIndex = -1; // Set crop box behind canvas
-  // NOTE: crop box must be in DOM (not hidden) for getCropRect to work properly
+  // Hide crop box during detection (still accessible for crop data)
+  cropBoxEl.style.zIndex = -1; 
   
-  // Pause video and seek to first frame
   videoEl.pause(); // Pause video playback
   videoEl.currentTime = 0; // Seek to first frame
 
-  // Wait for seek operation to complete
-  await new Promise(resolve => {
-    videoEl.onseeked = resolve;
-  });
+  await new Promise(resolve => { videoEl.onseeked = resolve; });
 
   // Get crop rectangle in video pixel coordinates using CropBox class
   const cropRect = cropBox.getCropRect();
@@ -148,71 +188,19 @@ poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
         `&gt; Poses detected in ${poseResults.length} frames<br>
         &gt; Use prev/next buttons to review frames<br>
         &gt; Click 'Open ORB' and scroll down`;
-
-  
-  
-  
+   
   frameNav.hidden = false;
   prevFrameBtn.disabled = poseResults.length === 0;
   nextFrameBtn.disabled = poseResults.length === 0;
   cropBoxEl.style.zIndex = 1; // Restore crop box z-index
   cropBoxEl.hidden = true; // Hide crop box after detection
   showOrbBtn.disabled = poseResults.length === 0;
-  
-  function showFrame(idx) {
-    if (!poseResults.length) return; // no results to show
-    currentFrameIdx = Math.max(0, Math.min(idx, poseResults.length - 1));
-    const frameData = poseResults[currentFrameIdx]; 
-    const img = new Image(); 
-    img.src = frameData.frameUrl; 
-    img.onload = () => { 
-        
-      // Get display size and determine scaling
-      const displayedVideo = videoEl.getBoundingClientRect(); // Displayed video size
-      const scaleX = displayedVideo.width / videoEl.videoWidth; // x scaling factor
-      const scaleY = displayedVideo.height / videoEl.videoHeight; // y scaling factor
-
-      // Set canvas to display size for UI
-      canvasEl.width  = displayedVideo.width; // set canvas to video display width
-      canvasEl.height = displayedVideo.height; // set canvas to video display height
-      
-      // Get canvas context
-      const ctx = canvasEl.getContext('2d');
-      
-      // Clear and draw the frame image
-      ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
-      ctx.drawImage(img, 0, 0, canvasEl.width, canvasEl.height);
-
-      // Draw the crop box rectangle in display space
-      if (frameData.cropRect) {
-          ctx.save(); // save context state
-          ctx.strokeStyle = 'black'; // crop box color
-          ctx.lineWidth   = 1; // crop box line width
-          // Draw rectangle
-          ctx.strokeRect(
-              frameData.cropRect.left * scaleX, // x position
-              frameData.cropRect.top * scaleY, // y position
-              frameData.cropRect.width * scaleX, // scaled width
-              frameData.cropRect.height * scaleY // scaled height
-          );
-          ctx.restore();
-      }
-
-    };
-  }
 
   /* SETUP FRAME NAVIGATION
   -----------------------------------------------------------------------------*/
-  let currentFrameIdx = 0; // Ensure this is defined at the top
+  currentFrameIdx = 0; // Ensure this is defined at the top
   frameNav.style.display = ''; // show frame navigation
   showFrame(currentFrameIdx); // show first frame
-
-  prevFrameBtn.onclick = () => {
-    if (currentFrameIdx > 0) showFrame(currentFrameIdx - 1);
-  };
-  nextFrameBtn.onclick = () => {
-    if (currentFrameIdx < poseResults.length - 1) showFrame(currentFrameIdx + 1);
-  };
   
   setShared('poseA', poseResults.map(frame => frame.landmarks));
   console.log('Pose Landmarks:', poseResults.map(frame => frame.landmarks));
@@ -225,3 +213,17 @@ poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
     height: videoEl.videoHeight
   });
 });
+
+prevFrameBtn.onclick = () => {
+  if (currentFrameIdx > 0) {
+    showFrame(currentFrameIdx - 1);
+    currentFrameIdx -= 1;
+  }
+};
+  
+nextFrameBtn.onclick = () => {
+  if (currentFrameIdx < poseResults.length - 1) {
+    showFrame(currentFrameIdx + 1);
+    currentFrameIdx += 1;
+  }
+};
