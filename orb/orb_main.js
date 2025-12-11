@@ -160,34 +160,6 @@ export async function showOrbSection() {
     refreshButtons(); // refresh buttons
 }
 
-/* APPLY TRANSFORMATION MATRIX
-------------------------------------------------------------------------------------
-Transform pose landmarks from image A to image B using the computed transformation
-------------------------------------------------------------------------------------*/
-function applyTransformationMatrix(transformationMatrix, transformedPoses) {
-    try {
-        const poseTransformer = new PoseTransform(window.cv);
-        const poseLandmarksAllFrames = getShared('poseA'); 
-
-        for (let i = 0; i < poseLandmarksAllFrames.length; i++) {
-            const frameLandmarks = poseLandmarksAllFrames[i];
-            if (!frameLandmarks || frameLandmarks.length === 0) continue; 
-
-            const transformed = poseTransformer.transformLandmarks(
-                frameLandmarks,
-                transformationMatrix,
-                'homography'
-            );
-            transformedPoses.push(transformed);
-        }
-        console.log('All Transformed Pose Landmarks:', transformedPoses);
-    } catch (e) {
-        console.error('Landmark transformation error', e);
-        alert('Landmark transformation failed. See console.');
-        return;
-    }
-}
-
 /* DRAW TRANSFORMED LANDMARKS
 ------------------------------------------------------------------------------------
 Draw transformed landmarks on image B and return array of drawn images 
@@ -471,9 +443,13 @@ btnMatch.addEventListener('click', () => {
         'homography'
     );
 
-    // Apply transformation to pose landmarks
-    const transformedPoses = [];
-    applyTransformationMatrix(transformationMatrix, transformedPoses);
+    const poseLandmarksAllFrames = getShared('poseA');
+
+    const transformedPoses = poseTransformer.transformLandmarks(
+        poseLandmarksAllFrames,
+        transformationMatrix,
+        'homography'
+    );
 
     // Draw transformed landmarks on image B
     const drawnImages = drawTransformedLandmarks(transformedPoses, imgB);

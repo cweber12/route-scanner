@@ -64,34 +64,43 @@ export class PoseTransform {
   map them to the coordinate space of image B.*/ 
 
   transformLandmarks(landmarks, M, method = 'homography') {
-    const pts = [];
-
-    for (const lm of landmarks) {
-      pts.push(lm.x);
-      pts.push(lm.y);
-    }
-    const ptsMat = this.cv.matFromArray(landmarks.length, 1, this.cv.CV_32FC2, pts);
-    const outMat = new this.cv.Mat();
-
-    if (method === 'homography') {
-      this.cv.perspectiveTransform(ptsMat, outMat, M);
-    } else {
-      this.cv.transform(ptsMat, outMat, M);
-    }
-
-    // Convert back to JS array
-    const transformed = [];
+    let transformedPoses = []; // array to hold transformed landmarks
+    
     for (let i = 0; i < landmarks.length; i++) {
-      transformed.push({
-        x: outMat.data32F[i * 2],
-        y: outMat.data32F[i * 2 + 1]
-      });
+      const frameLandmarks = landmarks[i];
+      if (!frameLandmarks || frameLandmarks.length === 0) continue;
+    
+      const pts = [];
+      for (const lm of frameLandmarks) {
+        pts.push(lm.x);
+        pts.push(lm.y);
+      }
+      const ptsMat = this.cv.matFromArray(
+        frameLandmarks.length, 
+        1, 
+        this.cv.CV_32FC2, pts
+      );
+      const outMat = new this.cv.Mat();
+
+      if (method === 'homography') {
+        this.cv.perspectiveTransform(ptsMat, outMat, M);
+      } else {
+        this.cv.transform(ptsMat, outMat, M);
+      }
+
+      // Convert back to JS array
+      const transformed = [];
+      for (let i = 0; i < frameLandmarks.length; i++) {
+        transformed.push({
+          x: outMat.data32F[i * 2],
+          y: outMat.data32F[i * 2 + 1]
+        });
+      }
+      transformedPoses.push(transformed);
+      ptsMat.delete();
+      outMat.delete();
     }
-
-    ptsMat.delete();
-    outMat.delete();
-
-    return transformed;
+    return transformedPoses;
   }
 
   matchesToArray(matches, keypointsA, keypointsB) {
