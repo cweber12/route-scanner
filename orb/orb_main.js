@@ -14,54 +14,51 @@ ________________________________________________________________________________
 // Helper to get element by ID
 const el = (id) => document.getElementById(id);
 
-// File input elements
-const imgA = el('imgA'); // Image A element (extracted frame)
-const fileB = el('fileB'); // File input for Image B
-const imgB = el('imgB'); // Image B element
+// Image elements
+const imgA = el('imgA'); // HTMLImageElement for first image (extracted frame)
+const fileB = el('fileB'); // File input for second image
+const imgB = el('imgB'); // HTMLImageElement for second image
 
-// Canvas elements
-const canvasA = el('canvasA'); // Display keypoints on Image A
-const canvasMatches = el('canvasMatches'); // Display matches between A and B
+// Canvas elements for displaying results
+const canvasA = el('canvasA'); // Display keypoints on imgA
+const canvasMatches = el('canvasMatches'); // Display matches between imgA and imgB
 
 // Action buttons
-const btnDetect = el('btnDetect'); // Detect features button
-const btnMatch = el('btnMatch'); // Match features button
-const showOrbParams = el('showOrbParams'); 
+const btnDetect = el('btnDetect'); // Button to detect ORB features on imgA 
+const btnMatch = el('btnMatch'); // Button to match ORB features between imgA and imgB
+const showOrbParams = el('showOrbParams'); // Button to show/hide ORB parameters
 
-// Pose parameters elements
+// Pose parameters elements (for interpolation when implemented)
 const intervalInput = el('intervalInput'); // Input for frame interval
 
 // ORB detection stats 
 const statsDetect = el('statsDetect'); // Stats for initial ORB detection
-const statsMatch = el('statsMatch'); // Stats for matching ORB features
+const statsMatch = el('statsMatch'); // Stats for matching results
 
 // ORB parameter elements
-const orbParamsEl = el('orbParams'); // ORB parameters display
-const nfeatures = el('nfeatures'); // Number of features to detect
-const ratio = el('ratio'); // Ratio for feature matching
-const ransac = el('ransac'); // RANSAC threshold
-const edgeThreshold = el('edgeThreshold'); // Edge threshold for ORB
-const scaleFactor = el('scaleFactor'); // Scale factor for ORB
-const nlevels = el('nlevels'); // Number of levels in the pyramid
-const fastThreshold = el('fastThreshold'); // FAST threshold for ORB
-const patchSize = el('patchSize'); // Patch size for ORB
+// Ref: https://docs.opencv.org/3.4/db/d95/classcv_1_1ORB.html
+const orbParamsEl = el('orbParams'); // ORB parameters section
+const nfeatures = el('nfeatures'); 
+const ratio = el('ratio'); 
+const ransac = el('ransac'); 
+const edgeThreshold = el('edgeThreshold'); 
+const scaleFactor = el('scaleFactor'); 
+const nlevels = el('nlevels'); 
+const fastThreshold = el('fastThreshold'); 
+const patchSize = el('patchSize'); 
 
-// Elements for landmark navigation
+// Elements transformed landmark display and navigation
 const landmarkNav = el('landmarkNav'); // Navigation container
 const prevBtn = el('prevBtn'); // Previous frame button
 const nextBtn = el('nextBtn'); // Next frame button
 const frameCounter = el('frameCounter'); // Frame counter display
 const frameImg = el('frameImg'); // Frame image display
 
-// Section elements for showing/hiding sections
+// Section elements for showing/hiding sections in UI
 const orbSection = el('orbSection'); // ORB section
 const matchSection = el('matchSection'); // Match features section
 const matchControls = el('matchControls'); // Match controls section 
 const showMatch = el('showMatch'); // Show match section
-
-// Crop box elements
-const cropBoxEl = el('cropBoxOrbA'); // Crop box for Image A
-const cropBoxElB = el('cropBoxOrbB'); // Crop box for Image B
 
 // Status display element
 const status2El = el('status-2');
@@ -120,20 +117,11 @@ function refreshButtons() {
     btnMatch.disabled  = !(cvReady && imgBReady && detectResultA); 
 }
 
-/* SHOW ORB SECTION
+/* LOAD IMAGE 
 ------------------------------------------------------------------------------------
-Load shared first frame image into Image A and show ORB section after pose detection 
-is done. 
+Load the extracted first frame image from shared state for ORB module
 -----------------------------------------------------------------------------------*/
-export async function showOrbSection() {
-    
-    // Ensure OpenCV.js is ready and initialize ORB module
-    if (window.cvIsReady || (window.cv && (window.cv.Mat || window.cv.getBuildInformation))) {
-        initOrbModule();
-    } else {
-        document.addEventListener('cv-ready', initOrbModule, { once: true });
-    }
-
+async function loadOrbImageA() {
     // Load first frame image and 
     const dataUrl = await getShared('firstFrameImage');
     if (!dataUrl) {
@@ -145,12 +133,29 @@ export async function showOrbSection() {
     const file = new File([blob], 'first_frame.png', { type: blob.type });
    
     await loadImg(file, imgA); // Load image into imgA
+}
 
-    orbSection.hidden = false; // show ORB section
-    imgAReady = true; // set imgAReady flag
-    detectResultA = null; // reset previous detection result
-    statsDetect.textContent = ''; // clear stats A
-    canvasA.hidden = true; // hide canvas A
+/* SHOW ORB SECTION
+------------------------------------------------------------------------------------
+Initialize ORB module, load shared first frame image into Image A and show ORB 
+section after pose detection is done. 
+-----------------------------------------------------------------------------------*/
+export async function showOrbSection() {
+    
+    // Ensure OpenCV.js is ready and initialize ORB module
+    if (window.cvIsReady || (window.cv && (window.cv.Mat || window.cv.getBuildInformation))) {
+        initOrbModule();
+    } else {
+        document.addEventListener('cv-ready', initOrbModule, { once: true });
+    }
+
+    await loadOrbImageA(); // Load first frame into imgA 
+
+    orbSection.hidden = false; 
+    imgAReady = true; 
+    detectResultA = null; 
+    statsDetect.textContent = ''; 
+    canvasA.hidden = true; 
     
     refreshButtons(); // refresh buttons
 }
@@ -344,20 +349,6 @@ btnDetect.addEventListener('click', () => {
         const fullW = imgA.naturalWidth;
         const fullH = imgA.naturalHeight;
         
-        // Build JSON
-        const baseJson = orbModule.exportJSON(detectResultA);
-        /*sourceJson = {
-            ...baseJson, // copy base JSON
-            imageSize: { width: fullW, height: fullH }, // full image size
-            // Normalize keypoints to full image size [0 - 1]
-            keypoints: keypointsFullPx.map(kp => ({     
-                ...kp, // copy keypoint 
-                x: kp.x / fullW, // normalize x to full image width
-                y: kp.y / fullH, // normalize y to full image height
-            })),
-        };
-        // NOTE: descriptors stay exactly as baseJson.descriptors (with data_b64)*/
-        
         // Update detection stats display
         statsDetect.textContent =
             `A: ${detectResultA.width}x${detectResultA.height}\n` +
@@ -368,7 +359,7 @@ btnDetect.addEventListener('click', () => {
         matchSection.hidden = false; // show match section
         matchControls.hidden = false; // show match controls
         imgA.style.display = 'none'; // hide original imageA
-        cropBoxEl.hidden = true; // hide crop box A
+        cropBoxA.cropBoxEl.hidden = true; // hide crop box A
         const fullMat = matFromImageEl(imgA); // Create Mat from full image A
         
         // Draw keypoints on full image A
