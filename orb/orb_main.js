@@ -77,6 +77,7 @@ const cropBoxElB = el('cropBoxOrbB'); // Crop box for Image B
 // Status display element
 const statusEl  = el('status');
 const status2El = el('status-2');
+const status3El = el('status-3');
 
 /* GLOBAL VARIABLES
 ____________________________________________________________________________________*/
@@ -152,8 +153,6 @@ export async function showOrbSection() {
     detectResult = null; // reset previous detection result
     statsDetect.textContent = ''; // clear stats A
     canvasA.hidden = true; // hide canvas A
-
-    statusEl.textContent = '> Scroll down to "Detect Background Features"';
     
     refreshButtons(); // refresh buttons
 }
@@ -405,9 +404,7 @@ btnDetect.addEventListener('click', () => {
     } finally { 
         src.delete(); // release Mat
         refreshButtons(); // refresh buttons
-        status2El.innerHTML = 
-            `&gt; Detected ${detectResult?.keypoints.length || 0} keypoints. <br>
-            &gt; Scroll down to load a second image and match features.`;
+        status2El.innerHTML = `Detected ${detectResult?.keypoints.length || 0} keypoints.`;
     }
 });
 
@@ -476,6 +473,7 @@ btnMatch.addEventListener('click', () => {
     the specified matching options.
     -------------------------------------------------------------------------*/
     
+    status3El.innerHTML = 'Matching background features...';
     // Set matching options    
     const matchOptions = {
         useKnn: true,
@@ -518,6 +516,7 @@ btnMatch.addEventListener('click', () => {
     image A --> image B.
     -------------------------------------------------------------------------*/
     
+    status3El.innerHTML = 'Transforming pose landmarks...';
     // Create PoseTransform instance
     const poseTransformer = new PoseTransform(window.cv);
     
@@ -538,5 +537,12 @@ btnMatch.addEventListener('click', () => {
 
     // Display transformed landmark images with navigation
     displayTransformedLandmarks(drawnImages);
+
+    imgB.style.display = 'none'; // hide original imageB
+    cropBoxB.cropBoxEl.hidden = true; // hide crop box B
+
+    status3El.innerHTML = 
+        `Matched ${matchResult.matches.length} features. <br>
+        Transformed landmarks drawn on Image B below.`;
     
 });

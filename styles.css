@@ -43,6 +43,7 @@ h2 {
     font-size: 24px;
     color: #FFF8D4; 
     text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    text-decoration: underline; 
 }
 
 .header-wrapper {
@@ -114,7 +115,7 @@ label {
     flex-direction: column; 
     align-items: center;
     justify-content: flex-start; 
-    width: 80vw; 
+    width: 60vw; 
     min-height: 100vh; 
     color: rgb(17, 17, 17);
     padding: 24px 48px;
@@ -124,8 +125,8 @@ label {
 
 .controls {
     gap: 16px;
-    background: rgba(0, 0, 0, 0.5);
-    color: rgb(226, 226, 226);
+    background: rgba(255, 255, 255, 0.5);
+    color: black;
     margin: 0px; 
     padding: 24px;
     box-shadow: 2px 2px 6px rgba(0,0,0,0.5);
@@ -237,6 +238,11 @@ label {
     gap: 16px; 
 }
 
+.description {
+    margin: 0px;
+    color: white;  
+}
+
 /*___________________________________________________
   FLEXBOX LAYOUT STYLES  
   ___________________________________________________*/
@@ -336,11 +342,6 @@ label {
 
 #status, #status-2, #status-3 {
     color: chartreuse; 
-    font-family:'Courier New', Courier, monospace;
-    padding: 8px; 
-    background: rgba(0,0,0,0.9);
-    border-radius: 4px;
-    box-shadow: 2px 2px 6px rgba(0,0,0,0.5);
     width: 100%; 
     box-sizing: border-box; 
 }

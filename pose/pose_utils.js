@@ -6,10 +6,12 @@ import {
     DrawingUtils
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/vision_bundle.js";
 
-const pointColor = 'red';
-const connectionColor = 'lime';
-const cropBoxColor = 'yellow';
-
+const leftPointColor = '#FFC400';
+const rightPointColor = '#6AECE1';
+const connectionColor = 'white';
+const cropBoxColor = 'black';
+const leftPoints = [4, 5, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32];
+const rightPoints = [1, 2, 3, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31];
 /* DRAW LANDMARKS ON IMAGE
 ______________________________________________________________________________
 Draws pose landmarks and connections on a canvas element overlaid on the image.
@@ -49,9 +51,12 @@ export function drawLandmarksOnImage(canvasEl, img, landmarks, cropBox=null) {
     /* DRAW LANDMARKS
     --------------------------------------------------------------------------*/
     // Draw each landmark as a circle
-    landmarks.forEach(lm => {
+    landmarks.forEach((lm, idx) => {
         ctx.beginPath(); 
-        ctx.arc(lm.x, lm.y, 4, 0, 2 * Math.PI); 
+        ctx.arc(lm.x, lm.y, 4, 0, 2 * Math.PI);
+        const pointColor = leftPoints.includes(idx) ? leftPointColor :
+                        rightPoints.includes(idx) ? rightPointColor :
+                        'white'; 
         ctx.fillStyle = pointColor; 
         ctx.fill(); 
     });

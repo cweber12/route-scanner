@@ -16,7 +16,6 @@ const videoFileInput = el('videoFile'); // Video file input element
 const videoEl        = el('video'); // Video element
 const canvasEl       = el('overlay'); // Canvas element for overlay
 const poseDetectBtn  = el('poseDetectBtn'); // Button to start pose detection
-const showOrbBtn     = el('showOrb'); // Button to show ORB features
 const statusEl       = el('status'); // Status display element
 const intervalInput  = el('intervalInput'); // Input for frame interval
 const frameNav       = el('frameNav'); // Frame navigation element
@@ -99,8 +98,8 @@ videoEl.addEventListener('loadeddata', () => {
 
   // Update status
   statusEl.innerHTML = 
-    `&gt; Set crop box around target (leave room for full range of motion).<br>
-    &gt; Click 'Detect Pose' to start pose detection.`;
+    `1. Set crop box around the target ( leave room for full range of motion ).<br>
+    2. Click 'Detect Pose'.`;
 
 });
 
@@ -128,7 +127,7 @@ videoFileInput.addEventListener('change', (e) => {
   const url = URL.createObjectURL(file); 
   videoEl.src = url; 
   poseDetectBtn.disabled = true;
-  statusEl.textContent = "> Loading video..."; 
+  statusEl.textContent = "Loading video..."; 
 });
 
 /* ON POSE DETECT BUTTON CLICK
@@ -158,7 +157,7 @@ poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
   -----------------------------------------------------------------------------*/
   const n = parseInt(intervalInput.value, 10) || 1;
   poseResults.length = 0;
-  statusEl.textContent = "> Detecting pose landmarks...";
+  statusEl.textContent = "Detecting pose landmarks...";
   
   await runPoseDetectionOnFrames(videoEl, canvasEl, poseResults, n, cropRect);
    
@@ -178,15 +177,10 @@ poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
   
   /* UPDATE STATUS AND ENABLE ORB BUTTON
   -----------------------------------------------------------------------------*/
-  statusEl.innerHTML = 
-    `&gt; Poses detected in ${poseResults.length} frames<br>
-    &gt; Use prev/next buttons to review frames<br>
-    &gt; Click 'Open ORB' and scroll down`;
+  statusEl.textContent = "Pose detection complete.";
 
-  
   // load opencv to window.cv for ORB module
   await loadOpenCV();
-  showOrbBtn.disabled = poseResults.length === 0;
   await showOrbSection(); // Show ORB section
   
   /* STORE POSE DATA IN SHARED STATE
