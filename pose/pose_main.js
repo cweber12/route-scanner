@@ -3,10 +3,10 @@
 import { runPoseDetectionOnFrames } from './pose_module.js';
 import { loadOpenCV } from '../load_opencv.js';
 import { setShared } from '../shared_state.js';
-import { CropBox } from '../CropBox.js'; 
+import { CropBox } from '../CropBox.js';
+import { showOrbSection } from '../orb/orb_main.js';
 
-/*___________________________________________________________________________________
-                                  DOM ELEMENTS
+/* DOM ELEMENTS 
 ___________________________________________________________________________________*/
 
 // Helper to get element by ID
@@ -24,91 +24,79 @@ const prevFrameBtn   = el('prevFrameBtn'); // Previous frame button
 const nextFrameBtn   = el('nextFrameBtn'); // Next frame button
 const cropBoxEl      = el('cropBoxPose'); // Crop box element
 const showImgA       = el('showImgA'); // Show Image A section
-const showOrbParams  = el('showOrbParams'); // Show ORB parameters section
-const orbParamsEl    = el('orbParams'); // ORB parameters section
 
-/*___________________________________________________________________________________
-                              GLOBAL VARIABLES
+/* GLOBAL VARIABLES
 ___________________________________________________________________________________*/
 
 const poseResults = []; // Array to store pose detection results
 const cropBox     = new CropBox(videoEl, cropBoxEl); // CropBox instance to select area 
 let currentFrameIdx; // Current frame index for navigation
 
+/* HELPER FUNCTIONS
+___________________________________________________________________________________*/
 
+/* DISPLAY FRAME WITH LANDMARKS 
+-----------------------------------------------------------------------------------
+Display a specific frame with pose landmarks and crop box overlays. Used in 
+frame navigation controls.
+-----------------------------------------------------------------------------------*/
 function showFrame(idx) {
-  if (!poseResults.length) return; // no results to show
+  if (!poseResults.length) return; 
   idx = Math.max(0, Math.min(idx, poseResults.length - 1));
+  
+  // Get frame data and create image element
   const frameData = poseResults[idx]; 
   const img = new Image(); 
   img.src = frameData.frameUrl; 
-  img.onload = () => { 
-      
-    // Get display size and determine scaling
-    const displayedVideo = videoEl.getBoundingClientRect(); // Displayed video size
-    const scaleX = displayedVideo.width / videoEl.videoWidth; // x scaling factor
-    const scaleY = displayedVideo.height / videoEl.videoHeight; // y scaling factor
-
-    // Set canvas to display size for UI
-    canvasEl.width  = displayedVideo.width; // set canvas to video display width
-    canvasEl.height = displayedVideo.height; // set canvas to video display height
+  
+  // Load frame image and display
+  img.onload = () => {       
     
-    // Get canvas context
-    const ctx = canvasEl.getContext('2d');
+    // Set canvas size/dimensions to match displayed video
+    const displayedVideo = videoEl.getBoundingClientRect(); 
+    canvasEl.width = displayedVideo.width; 
+    canvasEl.height = displayedVideo.height; 
+    const ctx = canvasEl.getContext('2d');    
     
     // Clear and draw the frame image
     ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
     ctx.drawImage(img, 0, 0, canvasEl.width, canvasEl.height);
-
-    // Draw the crop box rectangle in display space
-    if (frameData.cropRect) {
-        ctx.save(); // save context state
-        ctx.strokeStyle = 'black'; // crop box color
-        ctx.lineWidth   = 1; // crop box line width
-        // Draw rectangle
-        ctx.strokeRect(
-            frameData.cropRect.left * scaleX, // x position
-            frameData.cropRect.top * scaleY, // y position
-            frameData.cropRect.width * scaleX, // scaled width
-            frameData.cropRect.height * scaleY // scaled height
-        );
-        ctx.restore();
-    }
-
   };
 }
 
-/*___________________________________________________________________________________
-                               EVENT HANDLERS
+/* EVENT HANDLERS 
 ___________________________________________________________________________________*/
 
-/* ON VIDEO METADATA LOADED
+/* VIDEO LOADED EVENT
 -----------------------------------------------------------------------------------
 Set up canvas and crop box when video metadata is loaded (video uploaded)
 -----------------------------------------------------------------------------------*/
 videoEl.addEventListener('loadeddata', () => {
-  poseDetectBtn.disabled = false; // Enable pose detect button
-  poseSection.hidden = false; // Show pose section
-  // Set canvas internal pixel buffer size to match video size
-  canvasEl.width  = videoEl.videoWidth; // match video width
-  canvasEl.height = videoEl.videoHeight; // match video height
-
-  // Position canvas over video element 
-  canvasEl.style.position = 'absolute'; // position over video
-  canvasEl.style.left     = '0px'; // align left
-  canvasEl.style.top      = '0px'; // align top
-
-  // Disable pointer events on canvas to allow interaction with crop box
-  canvasEl.style.pointerEvents = 'none';
-
-  // Set canvas size to match displayed video size in browser
-  const videoRect = videoEl.getBoundingClientRect(); // get displayed video size
-  canvasEl.style.width = videoRect.width + 'px'; // match displayed video width
-  canvasEl.style.height = videoRect.height + 'px';  // match displayed video height
-
-  cropBoxEl.hidden = false; // Show crop box
-
   
+  // Enable pose detect button and show pose section
+  poseDetectBtn.disabled = false; 
+  poseSection.hidden = false; 
+
+  // Set canvas size to match video resulution (for drawing landmarks) 
+  canvasEl.width = videoEl.videoWidth; 
+  canvasEl.height = videoEl.videoHeight;  
+  
+  /* Set Up Canvas Styles for Display
+  ---------------------------------------------------------------------------*/
+  // Position canvas over video element
+  canvasEl.style.position = 'absolute'; 
+  canvasEl.style.left = '0px'; 
+  canvasEl.style.top = '0px';   
+  // Allow interaction with crop box through canvas
+  canvasEl.style.pointerEvents = 'none';
+  // Set canvas display size to match displayed video (CSS size)
+  const videoRect = videoEl.getBoundingClientRect(); 
+  canvasEl.style.width = videoRect.width + 'px'; 
+  canvasEl.style.height = videoRect.height + 'px';  
+
+  // Display crop box to select detection area
+  cropBoxEl.hidden = false; 
+
   // Update status
   statusEl.innerHTML = 
     `&gt; Set crop box around target (leave room for full range of motion).<br>
@@ -116,34 +104,31 @@ videoEl.addEventListener('loadeddata', () => {
 
 });
 
-/* ON WINDOW RESIZE
+/* WINDOW RESIZE EVENT
 -----------------------------------------------------------------------------------
 Resize canvas and crop box to match video display size
 -----------------------------------------------------------------------------------*/
 window.addEventListener('resize', () => {
-  // Adjust canvas and crop box size to match video display size
+
   const videoRect = videoEl.getBoundingClientRect();
-  
-  // Set canvas and crop box size to match video display size
-  canvasEl.style.width   = videoRect.width + 'px'; // displayed video width
-  canvasEl.style.height  = videoRect.height + 'px'; // displayed video height
-  cropBoxEl.style.width  = videoRect.width + 'px'; // displayed video width
-  cropBoxEl.style.height = videoRect.height + 'px'; // displayed video height
+  canvasEl.style.width   = videoRect.width + 'px'; 
+  canvasEl.style.height  = videoRect.height + 'px'; 
+  cropBoxEl.style.width  = videoRect.width + 'px'; 
+  cropBoxEl.style.height = videoRect.height + 'px';
 });
 
-// Video file input change event
+/* VIDEO FILE INPUT CHANGE EVENT
+-----------------------------------------------------------------------------------
+Load selected video file into video element
+-----------------------------------------------------------------------------------*/
 videoFileInput.addEventListener('change', (e) => {
-  const file = e.target.files[0]; // Selected video file
-  if (!file) return; // No file selected
-  // Set video source to selected file
-  const url = URL.createObjectURL(file); // Create object URL for the file
-  videoEl.src = url; // Set video element source to the file URL
-  poseDetectBtn.disabled = true; // Disable pose detect button until video is loaded
-  statusEl.textContent = "> Loading video..."; // Update status
-});
+  const file = e.target.files[0]; 
+  if (!file) return; 
 
-showOrbParams.addEventListener('click', () => {
-  orbParamsEl.hidden = !orbParamsEl.hidden;
+  const url = URL.createObjectURL(file); 
+  videoEl.src = url; 
+  poseDetectBtn.disabled = true;
+  statusEl.textContent = "> Loading video..."; 
 });
 
 /* ON POSE DETECT BUTTON CLICK
@@ -194,11 +179,15 @@ poseDetectBtn.addEventListener('click', async function handlePoseDetect() {
   /* UPDATE STATUS AND ENABLE ORB BUTTON
   -----------------------------------------------------------------------------*/
   statusEl.innerHTML = 
-        `&gt; Poses detected in ${poseResults.length} frames<br>
-        &gt; Use prev/next buttons to review frames<br>
-        &gt; Click 'Open ORB' and scroll down`;
+    `&gt; Poses detected in ${poseResults.length} frames<br>
+    &gt; Use prev/next buttons to review frames<br>
+    &gt; Click 'Open ORB' and scroll down`;
 
+  
+  // load opencv to window.cv for ORB module
+  await loadOpenCV();
   showOrbBtn.disabled = poseResults.length === 0;
+  await showOrbSection(); // Show ORB section
   
   /* STORE POSE DATA IN SHARED STATE
   -----------------------------------------------------------------------------

@@ -46,59 +46,53 @@ export async function runPoseDetectionOnFrames(
     VideoFrameExtractor. It runs pose detection, draws landmarks, and stores 
     results in poseResults array.
     --------------------------------------------------------------------------*/
-    async function processFrame(frameUrl, t, frameWidth, frameHeight) {
+    async function processFrame(frameUrl, t, frameWidth, frameHeight) {    
         
-        /* LOAD FRAME IMAGE
+        /* Load Frame Image
         --------------------------------------------------------------------------*/
         const img = new Image();
         img.src   = frameUrl;        
         await new Promise(resolve => { img.onload = resolve; });
 
-        /* SAVE FIRST FRAME FOR ORB DETECTION
+        /* Save First Frame Image for ORB Module
         --------------------------------------------------------------------------*/
         if (isFirstFrame) {
-            isFirstFrame = false; // clear flag after first frame
-            
+            isFirstFrame = false;            
             // Create a canvas with the full image size
             const fullFrameCanvas = document.createElement('canvas');
-            fullFrameCanvas.width  = img.width; // set canvas to image width
-            fullFrameCanvas.height = img.height; // set canvas to image height
-            
+            fullFrameCanvas.width  = img.width; 
+            fullFrameCanvas.height = img.height;          
             // Draw the full image onto the canvas
             const fullFrameCtx = fullFrameCanvas.getContext('2d');
-            fullFrameCtx.drawImage(img, 0, 0, img.width, img.height);
-            
+            fullFrameCtx.drawImage(img, 0, 0, img.width, img.height);           
             // Store as Data URL (or the canvas itself if you prefer)
             setShared('firstFrameImage', fullFrameCanvas.toDataURL());           
         }
 
-        /* CROP IMAGE FOR POSE DETECTION
+        /* Crop Image for Pose Detection
         --------------------------------------------------------------------------
         Create cropped image if crop rectangle is defined. This helps focus on the 
         subject and improves detection accuracy and speed.
-        --------------------------------------------------------------------------*/
-        
+        --------------------------------------------------------------------------*/       
         const cropForThisFrame = crop ? { ...crop } : null;
         const croppedCanvas = document.createElement('canvas');
-        const croppedCtx = croppedCanvas.getContext('2d');
-        
+        const croppedCtx = croppedCanvas.getContext('2d');        
         // If image was cropped, draw cropped region to cropped canvas
         if (cropForThisFrame) {
             croppedCanvas.width  = cropForThisFrame.width; 
-            croppedCanvas.height = cropForThisFrame.height; 
-            
+            croppedCanvas.height = cropForThisFrame.height;            
+            // Draw cropped region from original image onto cropped canvas
             croppedCtx.drawImage(
                 img, 
-                cropForThisFrame.left,   // source x
-                cropForThisFrame.top,    // source y
-                cropForThisFrame.width,  // source width
+                cropForThisFrame.left, // source x
+                cropForThisFrame.top, // source y
+                cropForThisFrame.width, // source width
                 cropForThisFrame.height, // source height
-                0, 0,                    // destination x, y
-                cropForThisFrame.width,  // destination width
-                cropForThisFrame.height  // destination height
+                0, 0, // destination x, y
+                cropForThisFrame.width, // destination width
+                cropForThisFrame.height // destination height
             );
-        // If no crop, use full image
-        } else {
+        } else { // If no crop, use full image
             croppedCanvas.width  = img.width;
             croppedCanvas.height = img.height;
             croppedCtx.drawImage(img, 0, 0, img.width, img.height);
@@ -109,14 +103,14 @@ export async function runPoseDetectionOnFrames(
         croppedImg.src = croppedCanvas.toDataURL(); 
         await new Promise(resolve => { croppedImg.onload = resolve; });
 
-        /* RUN POSE DETECTION
+        /* Run Pose Detection
         -------------------------------------------------------------------------
         result contains detected landmarks for the current frame relative to the 
         cropped image.
         -------------------------------------------------------------------------*/
         const result = poseLandmarker.detect(croppedImg); 
         
-        /* OFFSET AND DRAW LANDMARKS
+        /* Apply Offset to Landmarks and Draw on Original Image
         -------------------------------------------------------------------------
         Scaled and offset landmark coordinates to match the original image 
         coordinate space for display and storage. 
@@ -131,19 +125,22 @@ export async function runPoseDetectionOnFrames(
                     z: lm.z,
                     visibility: lm.visibility
                 }));
-                drawLandmarksOnImage(canvasEl, img, offsetLandmarks);
+                drawLandmarksOnImage(canvasEl, img, offsetLandmarks, cropForThisFrame);
             }
         } 
 
-        /* RE-CENTER NEXT FRAME CROP AROUND CURRENT FRAME HIPS
+        /* Update Crop for Next Frame
         -------------------------------------------------------------------------
-        Allows initial crop to follow the subject if they move in the frame. 
-        Avoids using heavy object detection models like YOLO for tracking.
+        Centers the crop box around the subjects hips in the current frame and 
+        use it for the next frame.
+        - Allows initial crop to follow the subject if they move in the frame. 
+        - Avoids using heavy object detection models like YOLO for tracking.
         -------------------------------------------------------------------------*/
         if (crop && result.landmarks && result.landmarks.length > 0) {
+            // Hips are landmarks 23 (left) and 24 (right) in MediaPipe Pose
             const landmarkSet = result.landmarks[0]; 
-            const leftHipIdx = 23; // left hip index
-            const rightHipIdx = 24; // right hip index
+            const leftHipIdx = 23; 
+            const rightHipIdx = 24; 
 
             // If both hip landmarks are present, recenter crop
             if (landmarkSet[leftHipIdx] && landmarkSet[rightHipIdx]) {
@@ -162,15 +159,17 @@ export async function runPoseDetectionOnFrames(
                 const centerX_original = crop.left + centerX_cropped * crop.width;
                 const centerY_original = crop.top  + centerY_cropped * crop.height;
 
-                // Center crop around current hip position for next frame
+                // Define new crop rectangle centered on hips
+                // Keep within top-left bounds of frame
                 crop.left = Math.max(0, Math.round(centerX_original - crop.width / 2));
                 crop.top  = Math.max(0, Math.round(centerY_original - crop.height / 2));
+                // Keep within bottom-right bounds of frame
                 crop.left = Math.min(crop.left, frameWidth  - crop.width);
                 crop.top  = Math.min(crop.top,  frameHeight - crop.height);
             }
         }
 
-        /* STORE RESULTS FOR THIS FRAME
+        /* Store Results for This Frame
         ------------------------------------------------------------------------- */
         poseResults.push({
             time: t, // timestamp in seconds

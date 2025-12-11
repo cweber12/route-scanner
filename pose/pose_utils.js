@@ -7,14 +7,15 @@ import {
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/vision_bundle.js";
 
 const pointColor = 'red';
-const color = 'lime';
+const connectionColor = 'lime';
+const cropBoxColor = 'yellow';
 
 /* DRAW LANDMARKS ON IMAGE
 ______________________________________________________________________________
 Draws pose landmarks and connections on a canvas element overlaid on the image.
 ______________________________________________________________________________*/
 
-export function drawLandmarksOnImage(canvasEl, img, landmarks) {
+export function drawLandmarksOnImage(canvasEl, img, landmarks, cropBox=null) {
     if (!landmarks || landmarks.length === 0) return;
     
     /* SET UP CANVAS
@@ -42,7 +43,7 @@ export function drawLandmarksOnImage(canvasEl, img, landmarks) {
     drawingUtils.drawConnectors(
         normalizedLandmarks, // normalized landmarks
         PoseLandmarker.POSE_CONNECTIONS, // pose connections
-        { color , lineWidth: 2 } // drawing style
+        { color: connectionColor , lineWidth: 2 } // drawing style
     );
     
     /* DRAW LANDMARKS
@@ -54,5 +55,20 @@ export function drawLandmarksOnImage(canvasEl, img, landmarks) {
         ctx.fillStyle = pointColor; 
         ctx.fill(); 
     });
+
+    /* DRAW CROP BOX IF PROVIDED
+    --------------------------------------------------------------------------*/
+    if (cropBox) {
+        ctx.strokeStyle = cropBoxColor;
+        ctx.lineWidth   = 2;
+        ctx.strokeRect(
+            cropBox.left, 
+            cropBox.top, 
+            cropBox.width, 
+            cropBox.height
+        );
+    }
+
+
 
 }

@@ -18,14 +18,14 @@ export class ORBModule {
     
     // Default parameters
     const {
-      nfeatures     = 1200, // Number of features to detect
-      scaleFactor   = 1.2, // Pyramid scale factor
-      nlevels       = 8, // Number of pyramid levels
+      nfeatures = 1200, // Number of features to detect
+      scaleFactor = 1.2, // Pyramid scale factor
+      nlevels = 8, // Number of pyramid levels
       edgeThreshold = 31, // Size of the border where features are not detected
-      firstLevel    = 0, // Level of pyramid to put source image to
-      WTA_K         = 2, // Number of pts that produce each element of descriptor
-      scoreType     =this.cv.ORB_HARRIS_SCORE, // Score type (HARRIS or FAST)
-      patchSize     = 31, // Size of the patch used by the rotated BRIEF descriptor
+      firstLevel = 0, // Level of pyramid to put source image to
+      WTA_K = 2, // Number of pts that produce each element of descriptor
+      scoreType = this.cv.ORB_HARRIS_SCORE, // Score type (HARRIS or FAST)
+      patchSize = 31, // Size of the patch used by the rotated BRIEF descriptor
       fastThreshold = 20 // Threshold for FAST corner detector
     } = opts; 
 
@@ -108,8 +108,9 @@ export class ORBModule {
   }    
   
   /* MATCH KEYPOINTS FROM SOURCE <-> TARGET IMAGE
-     Matches source <-> target ORB features using Brute-Force matcher
-     Reference: https://docs.opencv.org/4.x/dc/dc3/tutorial_py_matcher.html
+  _______________________________________________________________________________
+  Matches source <-> target ORB features using Brute-Force matcher
+  Reference: https://docs.opencv.org/4.x/dc/dc3/tutorial_py_matcher.html
   _______________________________________________________________________________ */
   matchFeatures(source, target, opts = {}) {  
     
@@ -232,6 +233,7 @@ export class ORBModule {
 
   /* DRAW DETECTED KEYPOINTS ON IMAGE
   ______________________________________________________________________*/
+
   drawKeypoints(imgRGBA, keypoints, outCanvas) {
     
     // Set output canvas size
@@ -263,6 +265,7 @@ export class ORBModule {
 
   /* DRAW MATCHES BETWEEN IMAGE A <-> IMAGE B
   _______________________________________________________________________________ */
+
   drawMatches(
     imgA, // HTMLImageElement source image, 
     imgB, // HTMLImageElement target image
@@ -358,7 +361,7 @@ export class ORBModule {
     return drawnMatches;
   }
 
-  /* DIAGRAM FOR OUTPUT IMAGE LAYOUT
+  /* Diagram for drawnMatches Layout
   _________________________________________________________________________________ 
 
         {   matrixA.cols   } {         matrixB.cols    }
@@ -379,18 +382,12 @@ export class ORBModule {
 
   /* SERIALIZE KEYPOINTVECTOR TO JS ARRAY
   ---------------------------------------------------------------------------------
-  Convert OpenCV.js KeyPointVector to JS array of keypoint objects
-
-  Input:
-  - kpVec: OpenCV.js KeyPointVector
-  Output:
-  - out: Array of keypoints [{x, y, size, angle, response, octave, class_id}, ...]    
+  Convert OpenCV.js KeyPointVector to JS array of keypoint objects  
   ---------------------------------------------------------------------------------*/
   _serializeKeypoints(kpVec) {
-    const n = kpVec.size(); // number of keypoints
-    const out = [];         // output array  
+    const out = [];           
     // Loop through keypoints
-    for (let i=0; i < n; i++) {       
+    for (let i=0; i < kpVec.size(); i++) {       
       const k = kpVec.get(i); // get KeyPoint   
       out.push({ // push serialized object
         x:k.pt.x, // point coordinates  
@@ -407,36 +404,22 @@ export class ORBModule {
 
   /* SERIALIZE DESCRIPTORS MAT TO JS OBJECT
   ---------------------------------------------------------------------------------
-  Convert OpenCV.js descriptor Mat to JS object with rows, cols, data (Uint8Array)
-  
-  Input:
-  - des: OpenCV.js Mat of descriptors
-  Output:
-  - out: Object { rows, cols, data (Uint8Array) }    
+  Convert OpenCV.js descriptor Mat to JS object with rows, cols, data (Uint8Array)   
   ---------------------------------------------------------------------------------*/
   _serializeDescriptors(des) {
     // Check for empty descriptors
     if (!des || des.rows===0 || des.cols===0) return null;
     // Return serialized descriptor object
-    return { 
-      rows: des.rows, // number of rows 
-      cols: des.cols, // number of columns
-      data: new Uint8Array(des.data) // copy data to Uint8Array
-    };
+    return { rows: des.rows, cols: des.cols, data: new Uint8Array(des.data) };
   }
   
   /* UINT8ARRAY TO BASE64 STRING
   ----------------------------------------------------------------------------------
   Convert Uint8Array to base64 string for JSON serialization
-
-  Input:
-    - u8: Uint8Array
-  Output:
-    - b64: base64 encoded string 
   ----------------------------------------------------------------------------------*/
   _u8ToB64(u8) {
     
-    let binary  = ''; // binary string
+    let binary  = ''; 
     const chunk = 0x8000; // chunk size for processing
     
     // Iterate through Uint8Array in chunks
@@ -451,22 +434,16 @@ export class ORBModule {
   /* BASE64 STRING TO UINT8ARRAY
   ----------------------------------------------------------------------------------
   Convert base64 string back to Uint8Array
-
-  Input:
-  - b64: base64 encoded string
-  Output:
-  - u8: Uint8Array 
   ----------------------------------------------------------------------------------*/
   _b64ToU8(b64) {
     const bin = atob(b64); // decode base64 to binary string
-    const u8  = new Uint8Array(bin.length); // create Uint8Array
+    const u8  = new Uint8Array(bin.length); 
     
     // Iterate through binary string and fill Uint8Array
     for (let i=0;i<bin.length;i++) {
       // Convert each character to its char code
       u8[i]=bin.charCodeAt(i);
-    } 
-    // Return the Uint8Array
+    }
     return u8;
   }
 
