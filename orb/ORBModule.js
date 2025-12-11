@@ -14,32 +14,32 @@ export class ORBModule {
                               PUBLIC METHODS
   _______________________________________________________________________________*/
   
-  detectORB(srcRGBA, opts = {}) {
+  detectORB(srcRGBA, opts = {}, cropX, cropY) {
     
     // Default parameters
     const {
-      nfeatures = 1200, // Number of features to detect
-      scaleFactor = 1.2, // Pyramid scale factor
-      nlevels = 8, // Number of pyramid levels
-      edgeThreshold = 31, // Size of the border where features are not detected
-      firstLevel = 0, // Level of pyramid to put source image to
-      WTA_K = 2, // Number of pts that produce each element of descriptor
-      scoreType = this.cv.ORB_HARRIS_SCORE, // Score type (HARRIS or FAST)
-      patchSize = 31, // Size of the patch used by the rotated BRIEF descriptor
-      fastThreshold = 20 // Threshold for FAST corner detector
+      nfeatures = 1200, 
+      scaleFactor = 1.2, 
+      nlevels = 8, 
+      edgeThreshold = 31, 
+      firstLevel = 0, 
+      WTA_K = 2, 
+      scoreType = this.cv.ORB_HARRIS_SCORE, 
+      patchSize = 31, 
+      fastThreshold = 20
     } = opts; 
 
     // Create new Mats and ORB detector
     const gray = new this.cv.Mat();
-   this.cv.cvtColor(srcRGBA, gray,this.cv.COLOR_RGBA2GRAY);
+    this.cv.cvtColor(srcRGBA, gray,this.cv.COLOR_RGBA2GRAY);
 
     const orbDetector = new this.cv.ORB(
       nfeatures, 
       scaleFactor, 
-      nlevels, 
+      nlevels,
       edgeThreshold, 
       firstLevel, 
-      WTA_K, 
+      WTA_K,
       scoreType, 
       patchSize, 
       fastThreshold
@@ -62,6 +62,14 @@ export class ORBModule {
       // 4.2 Serialize keypoints and descriptors
       const keypoints = this._serializeKeypoints(kpVec);
       const descriptors = this._serializeDescriptors(des);
+
+      if (cropX || cropY > 0) {
+        // Adjust keypoint coordinates to full image space
+        for (const kp of keypoints) {
+          kp.x += cropX; // adjust x coordinate
+          kp.y += cropY; // adjust y coordinate
+        }
+      }
 
       // 4.3 Return the results
       return { 

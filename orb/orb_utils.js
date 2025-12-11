@@ -7,15 +7,9 @@ const __tmpCtx = __tmpCanvas.getContext('2d', { willReadFrequently: true }); /*
 
 /* LOAD IMAGE
 ----------------------------------------------------------------------------
-Load an uploaded image file into an HTMLImageElement for display and processing.
-
-Input:
-- file: Input File object (from file input)
-- imgEl: HTMLImageElement to load the image into
-- cropBox: Crop box HTML element to initialize
-
-Output:
-- Promise that resolves when image is loaded and crop box initialized */
+Load an uploaded image file into an HTMLImageElement for display and 
+processing.
+----------------------------------------------------------------------------*/
 
 export function loadImg(file, imgEl) {
     // Return a promise that resolves when the image is loaded
@@ -37,12 +31,7 @@ export function loadImg(file, imgEl) {
 /* CREATE MAT FROM IMAGE ELEMENT
 -----------------------------------------------------------------------------
 Convert an HTMLImageElement to cv.Mat (CV_8UC4) for OpenCV processing.
-
-Input:
-- imgEl: HTMLImageElement uploaded in UI
-
-Output:
-- cv.Mat in CV_8UC4 format */
+----------------------------------------------------------------------------*/
 
 export function matFromImageEl(imgEl) {
     // Get image dimensions, use natural size if available
@@ -68,10 +57,7 @@ export function matFromImageEl(imgEl) {
 -----------------------------------------------------------------------------
 Display a cv.Mat on a canvas element, compatible with OpenCV.js builds
 that may not include cv.imshow. 
-
-Input:
-- canvas: HTMLCanvasElement to draw the image on
-- mat: cv.Mat to display (can be CV_8UC3 or CV_8UC4) */
+----------------------------------------------------------------------------*/
 
 export function imshowCompat(canvas, mat) {    
     if (window.cv.imshow) { // if the build supports imshow          
@@ -117,9 +103,11 @@ export function imshowCompat(canvas, mat) {
     rgba.delete(); // clean up temporary Mat
 }
 
-/* MATCHES TO ARRAY
-Convert matches and keypoints to arrays of matched points
-________________________________________________________________________________________*/
+/* CONVERT MATCHES TO KEYPOINT ARRAYS
+-----------------------------------------------------------------------------
+Convert array of cv.DMatch objects to two arrays of matched keypoints with x,y 
+coordinates for source and destination images.
+-----------------------------------------------------------------------------*/
 export function matchesToArray(matches, keypointsA, keypointsB) {
 
     if (!Array.isArray(matches) || !Array.isArray(keypointsA) || !Array.isArray(keypointsB)) {
