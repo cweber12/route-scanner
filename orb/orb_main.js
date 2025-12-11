@@ -1,12 +1,12 @@
 // main.js
 // Main script for ORB feature detection and matching tool
 
-import { ORBModule } from './ORBModule.js?v=20251104';
-import { CropBox } from '../CropBox.js?v=20251104'; 
-import { PoseTransform } from '../PoseTransform.js?v=20251104';
-import { loadImg, matFromImageEl, imshowCompat} from './orb_utils.js?v=20251104';
+import { ORBModule } from './ORBModule.js';
+import { CropBox } from '../CropBox.js'; 
+import { PoseTransform } from '../PoseTransform.js';
+import { loadImg, matFromImageEl, imshowCompat} from './orb_utils.js';
 import {getShared, setShared} from '../shared_state.js';
-import { drawLandmarksOnImage } from '../pose/pose_utils.js?v=20251104';
+import { drawLandmarksOnImage } from '../pose/pose_utils.js';
 
 /* DOM ELEMENTS
 ____________________________________________________________________________________*/
@@ -164,7 +164,7 @@ export async function showOrbSection() {
 ------------------------------------------------------------------------------------
 Draw transformed landmarks on image B and return array of drawn images 
 ------------------------------------------------------------------------------------ */
-function drawTransformedLandmarks(transformedPoses, imgB) {
+function drawTransformedPoses(transformedPoses, imgB) {
     let drawnImages = [];
     try {
         for (let i = 0; i < transformedPoses.length; i++) {
@@ -306,9 +306,7 @@ btnDetect.addEventListener('click', () => {
     };
     
     // Run ORB detection
-    try {
-        
-        
+    try {     
         // Detect ORB features on cropped image
         detectResultA = orbModule.detectORB(
             croppedMatA, 
@@ -316,11 +314,11 @@ btnDetect.addEventListener('click', () => {
             cropRectA.x, 
             cropRectA.y,
         );
-        
+
         // Get full image dimensions
         const fullW = imgA.naturalWidth;
         const fullH = imgA.naturalHeight;
-        
+
         // Update detection stats display
         statsDetect.textContent =
             `A: ${detectResultA.width}x${detectResultA.height}\n` +
@@ -341,16 +339,15 @@ btnDetect.addEventListener('click', () => {
             canvasA // canvas to draw on
         );
         fullMat.delete(); 
-    // Catch any errors during detection
+
     } catch (e) { 
         console.error('Detect error', e);
         alert('Detect failed. See console.');
         detectResultA = null;
         sourceJson = null;
-    // Cleanup
     } finally { 
-        croppedMatA.delete(); // release Mat
-        refreshButtons(); // refresh buttons
+        croppedMatA.delete(); 
+        refreshButtons(); 
         status2El.innerHTML = `Detected ${detectResultA?.keypoints.length || 0} keypoints.`;
     }
 });
@@ -397,7 +394,11 @@ btnMatch.addEventListener('click', () => {
     };
 
     // Run feature matching
-    const matchResult = orbModule.matchFeatures(detectResultA, detectResultB, matchOptions); 
+    const matchResult = orbModule.matchFeatures(
+        detectResultA, 
+        detectResultB, 
+        matchOptions
+    ); 
     
     
     /* Draw Matches on Canvas
@@ -432,6 +433,7 @@ btnMatch.addEventListener('click', () => {
     -------------------------------------------------------------------------*/
     
     status3El.innerHTML = 'Transforming pose landmarks...';
+    
     // Create PoseTransform instance
     const poseTransformer = new PoseTransform(window.cv);
     
@@ -443,8 +445,10 @@ btnMatch.addEventListener('click', () => {
         'homography'
     );
 
+    // Get previously detected pose landmarks
     const poseLandmarksAllFrames = getShared('poseA');
 
+    // Transform landmarks to image B coordinate space using the matrix
     const transformedPoses = poseTransformer.transformLandmarks(
         poseLandmarksAllFrames,
         transformationMatrix,
@@ -452,7 +456,7 @@ btnMatch.addEventListener('click', () => {
     );
 
     // Draw transformed landmarks on image B
-    const drawnImages = drawTransformedLandmarks(transformedPoses, imgB);
+    const drawnImages = drawTransformedPoses(transformedPoses, imgB);
 
     // Display transformed landmark images with navigation
     displayTransformedLandmarks(drawnImages);

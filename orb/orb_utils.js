@@ -102,35 +102,3 @@ export function imshowCompat(canvas, mat) {
     canvas.getContext('2d').putImageData(imageData, 0, 0); 
     rgba.delete(); // clean up temporary Mat
 }
-
-/* CONVERT MATCHES TO KEYPOINT ARRAYS
------------------------------------------------------------------------------
-Convert array of cv.DMatch objects to two arrays of matched keypoints with x,y 
-coordinates for source and destination images.
------------------------------------------------------------------------------*/
-export function matchesToArray(matches, keypointsA, keypointsB) {
-
-    if (!Array.isArray(matches) || !Array.isArray(keypointsA) || !Array.isArray(keypointsB)) {
-        console.warn('Invalid arguments to computeTransformFromMatches');
-        return null;
-    }
-
-    const sourceMatches = [], targetMatches = []; 
-    
-    // Save matched keypoints (filter out unmatched)
-    for (const m of matches) {
-        const s = keypointsA[m.queryIdx]; 
-        const t = keypointsB[m.trainIdx]; 
-        
-        sourceMatches.push({ x: s.x, y: s.y });
-        targetMatches.push({ x: t.x, y: t.y });
-    }
-
-    if (sourceMatches.length < 4 || targetMatches.length < 4) {
-        console.warn('Not enough matches to compute transform');
-        return null;
-    }
-    // Return matched keypoint arrays
-    return [sourceMatches, targetMatches];
-
-}
